@@ -1,0 +1,54 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: cimg/go:1.14
+    working_directory: /home/circleci/go/src/github.com/TriggerMail/lazylru
+    environment:
+      TEST_RESULTS: /tmp/test-results
+      GOPRIVATE: "*github.com/TriggerMail/*"
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - go-mod-v2-{{ checksum "go.sum" }}
+      - run:
+          name: get dependencies
+          command: |
+            go env
+            go get -t -v ./...
+      - run:
+          name: get go-junit-report
+          command: go get -v -u github.com/jstemmer/go-junit-report
+      - run:
+          name: go vet
+          command: go vet ./...
+      - run:
+          name: check formatting
+          command: |
+            find . -type d -path "./vendor" -prune -o -name "*.go" -exec gofmt -d {} \; | tee /tmp/gofmt.out
+            if [[ -s /tmp/gofmt.out ]]; then exit 1; fi
+      - run:
+          name: make test result directory
+          command: mkdir -p $TEST_RESULTS
+      - run:
+          name: run tests
+          command: |
+            trap "$GOPATH/bin/go-junit-report <${TEST_RESULTS}/go-test.out > ${TEST_RESULTS}/go-test-report.xml" EXIT
+            go test -v ./... | tee ${TEST_RESULTS}/go-test.out
+      - save_cache:
+          key: go-mod-v2-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg/mod"
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: raw-test-output
+      - store_test_results:
+          path: /tmp/test-results
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build:
+          context: build-global
