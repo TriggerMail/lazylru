@@ -37,7 +37,7 @@ If sharding makes sense for you, it should be pretty easy to make a list of Lazy
 
 ## Usage
 
-Like Go's `[heap](https://golang.org/pkg/container/heap/)` itself, Lazy LRU uses the `interface{}` type for its values. That means that casting is required on the way out. As soon as Go has [generics](https://go.googlesource.com/proposal/+/master/design/go2draft-contracts.md), I'll get right on it. For now, it looks like this:
+Like Go's [`heap`](https://golang.org/pkg/container/heap/) itself, Lazy LRU uses the `interface{}` type for its values. That means that casting is required on the way out. As soon as Go has [generics](https://go.googlesource.com/proposal/+/master/design/go2draft-contracts.md), I'll get right on it. For now, it looks like this:
 
 ```go
 lru := lazylru.New(10, 5 * time.minute)
