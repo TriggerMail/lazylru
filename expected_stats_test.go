@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/TriggerMail/lazylru"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type ExpectedStats struct {
@@ -60,34 +60,34 @@ func (es ExpectedStats) WithReaperCycles(v uint32) ExpectedStats {
 
 func (es ExpectedStats) Test(t *testing.T, stats lazylru.Stats) {
 	if es.KeysWritten != nil {
-		assert.Equal(t, int(*es.KeysWritten), int(stats.KeysWritten), "keys written")
+		require.Equal(t, int(*es.KeysWritten), int(stats.KeysWritten), "keys written")
 	}
 
 	if es.KeysReadOK != nil {
-		assert.Equal(t, int(*es.KeysReadOK), int(stats.KeysReadOK), "keys read ok")
+		require.Equal(t, int(*es.KeysReadOK), int(stats.KeysReadOK), "keys read ok")
 	}
 
 	if es.KeysReadNotFound != nil {
-		assert.Equal(t, int(*es.KeysReadNotFound), int(stats.KeysReadNotFound), "keys read not found")
+		require.Equal(t, int(*es.KeysReadNotFound), int(stats.KeysReadNotFound), "keys read not found")
 	}
 
 	if es.KeysReadExpired != nil {
-		assert.Equal(t, int(*es.KeysReadExpired), int(stats.KeysReadExpired), "keys read expired")
+		require.Equal(t, int(*es.KeysReadExpired), int(stats.KeysReadExpired), "keys read expired")
 	}
 
 	if es.Shuffles != nil {
-		assert.Equal(t, int(*es.Shuffles), int(stats.Shuffles), "shuffles")
+		require.Equal(t, int(*es.Shuffles), int(stats.Shuffles), "shuffles")
 	}
 
 	if es.Evictions != nil {
-		assert.Equal(t, int(*es.Evictions), int(stats.Evictions), "evictions")
+		require.Equal(t, int(*es.Evictions), int(stats.Evictions), "evictions")
 	}
 
 	if es.KeysReaped != nil {
-		assert.Equal(t, int(*es.KeysReaped), int(stats.KeysReaped), "keys reaped")
+		require.Equal(t, int(*es.KeysReaped), int(stats.KeysReaped), "keys reaped")
 	}
 
 	if es.ReaperCycles != nil {
-		assert.Equal(t, int(*es.ReaperCycles), int(stats.ReaperCycles), "reaper cycles")
+		require.Equal(t, int(*es.ReaperCycles), int(stats.ReaperCycles), "reaper cycles")
 	}
 }

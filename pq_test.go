@@ -4,12 +4,12 @@ import (
 	"container/heap"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPopEmpty(t *testing.T) {
 	pq := itemPQ{}
-	assert.Nil(t, pq.Pop())
+	require.Nil(t, pq.Pop())
 }
 func TestPushPop(t *testing.T) {
 	pq := itemPQ{}
@@ -20,7 +20,7 @@ func TestPushPop(t *testing.T) {
 		key:          "schlage",
 	})
 	pqi := heap.Pop(&pq).(*item)
-	assert.Equal(t, "schlage", pqi.key)
+	require.Equal(t, "schlage", pqi.key)
 }
 
 func TestPushPopOrdered(t *testing.T) {
@@ -42,9 +42,9 @@ func TestPushPopOrdered(t *testing.T) {
 		key:          "abloy",
 	})
 
-	assert.Equal(t, "schlage", heap.Pop(&pq).(*item).key)
-	assert.Equal(t, "kwikset", heap.Pop(&pq).(*item).key)
-	assert.Equal(t, "abloy", heap.Pop(&pq).(*item).key)
+	require.Equal(t, "schlage", heap.Pop(&pq).(*item).key)
+	require.Equal(t, "kwikset", heap.Pop(&pq).(*item).key)
+	require.Equal(t, "abloy", heap.Pop(&pq).(*item).key)
 }
 
 func TestPushPopUpdate(t *testing.T) {
@@ -68,7 +68,7 @@ func TestPushPopUpdate(t *testing.T) {
 	heap.Push(&pq, kwi)
 	pq.update(kwi, 3)
 
-	assert.Equal(t, "schlage", heap.Pop(&pq).(*item).key)
-	assert.Equal(t, "abloy", heap.Pop(&pq).(*item).key)
-	assert.Equal(t, "kwikset", heap.Pop(&pq).(*item).key)
+	require.Equal(t, "schlage", heap.Pop(&pq).(*item).key)
+	require.Equal(t, "abloy", heap.Pop(&pq).(*item).key)
+	require.Equal(t, "kwikset", heap.Pop(&pq).(*item).key)
 }
