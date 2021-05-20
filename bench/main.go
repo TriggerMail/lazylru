@@ -51,6 +51,7 @@ type TestParams struct {
 	Name         string
 	Cache        Cache
 	WorkTime     time.Duration
+	SleepTime    time.Duration
 	TestDataSpec TestDataSpec
 }
 
@@ -87,27 +88,27 @@ func main() {
 		{5, 20000, 1000000},
 	} {
 		testData := tds.ToRanges()
-		// for _, testWorkTime := range []time.Duration{0, time.Microsecond, 10 * time.Microsecond, 100 * time.Microsecond} {
-		// 	for _, testThreads := range []int{1, 2, 4, 8, 16} {
-		// for _, testSize := range []int{2000, 10000} {
-		for _, testWorkTime := range []time.Duration{0, 1 * time.Microsecond} {
-			for _, testThreads := range []int{1, 8, 64} {
-				for _, testSize := range []int{100, 10000} {
-					for _, cache := range caches {
-						testLru(
-							TestParams{
-								Duration:     testDuration,
-								MaxCycles:    tds.Ranges * tds.CyclesPerRange,
-								Threads:      testThreads,
-								Size:         testSize,
-								Name:         cache.name,
-								Cache:        cache.factory(testSize),
-								WorkTime:     testWorkTime,
-								TestDataSpec: tds,
-							},
-							testData,
-						)
-						_ = logger.Sync()
+		for _, testSleepTime := range []time.Duration{0, 100 * time.Microsecond, time.Millisecond} {
+			for _, testWorkTime := range []time.Duration{0, 1 * time.Microsecond, 10 * time.Microsecond} {
+				for _, testThreads := range []int{1, 8, 64, 256} {
+					for _, testSize := range []int{100, 10000} {
+						for _, cache := range caches {
+							testLru(
+								TestParams{
+									Duration:     testDuration,
+									MaxCycles:    tds.Ranges * tds.CyclesPerRange,
+									Threads:      testThreads,
+									Size:         testSize,
+									Name:         cache.name,
+									Cache:        cache.factory(testSize),
+									WorkTime:     testWorkTime,
+									SleepTime:    testSleepTime,
+									TestDataSpec: tds,
+								},
+								testData,
+							)
+							_ = logger.Sync()
+						}
 					}
 				}
 			}
@@ -166,6 +167,7 @@ func testLru(testParams TestParams, testData TestData) {
 				if workCycles > 0 {
 					spinWait(workCycles)
 				}
+				time.Sleep(testParams.SleepTime)
 			}
 			atomic.AddInt64(&globalHits, hits)
 			atomic.AddInt64(&globalCycles, int64(cycles))
@@ -210,6 +212,7 @@ func printHeaders() {
 		"threads",
 		"size",
 		"work_time_µs",
+		"sleep_time_µs",
 		"cycles",
 		"duration_ms",
 		"rate_kHz",
@@ -231,6 +234,8 @@ func printResult(cycles int64, hits int64, duration time.Duration, testParams Te
 	fmt.Print(testParams.Size)
 	fmt.Print("\t")
 	fmt.Print(testParams.WorkTime / time.Microsecond)
+	fmt.Print("\t")
+	fmt.Print(testParams.SleepTime / time.Microsecond)
 	fmt.Print("\t")
 	fmt.Print(cycles)
 	fmt.Print("\t")
