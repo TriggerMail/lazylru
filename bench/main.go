@@ -1,6 +1,10 @@
 package main
 
 import (
+	"fmt"
+	"math"
+	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -9,6 +13,30 @@ import (
 	"go.uber.org/zap"
 )
 
+var SpinsPerMicro = func() uint64 {
+	testSpins := uint64(1000000)
+	testIterations := 1001
+	results := make([]time.Duration, testIterations)
+
+	for i := 0; i < testIterations; i++ {
+		start := time.Now()
+		spinWait(testSpins)
+		results[i] = time.Since(start)
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i] < results[j]
+	})
+
+	return uint64(float64(testSpins) / (results[testIterations/2].Seconds() * 1000000))
+}()
+
+func spinWait(n uint64) {
+	for i := uint64(0); i < n; i++ {
+		_ = i
+	}
+}
+
 type Cache interface {
 	Get(key string) (interface{}, bool)
 	Set(key string, value interface{})
@@ -16,20 +44,25 @@ type Cache interface {
 }
 
 type TestParams struct {
-	Duration time.Duration
-	Threads  int
-	Size     int
-	Name     string
-	Cache    Cache
+	Duration  time.Duration
+	MaxCycles int
+	Threads   int
+	Size      int
+	Name      string
+	Cache     Cache
+	WorkTime  time.Duration
 }
 
 var logger *zap.Logger
 
 func main() {
-	logger, _ = zap.NewProduction()
+	logger, _ = zap.NewProduction(zap.WithCaller(false))
 
 	logger.Info("Begin")
-	testData := NewTestDataRanges(5, 1000, 1000000)
+	rangeCount := 5
+	rangeSize := 1000
+	rangeCycles := 1000000
+	testData := NewTestDataRanges(rangeCount, rangeSize, rangeCycles)
 	logger.Info("Data loaded")
 	testDuration := 5 * time.Second
 
@@ -38,18 +71,39 @@ func main() {
 		factory func(int) Cache
 	}{
 		{"null", func(size int) Cache { return NullCache }},
+		{"mapcache.hour", func(size int) Cache { return NewMapCache(size, time.Hour) }},
+		{"mapcache.50ms", func(size int) Cache { return NewMapCache(size, time.Millisecond*50) }},
 		{"lazylru.hour", func(size int) Cache { return lazylru.New(size, time.Hour) }},
 		{"lazylru.50ms", func(size int) Cache { return lazylru.New(size, time.Millisecond*50) }},
 		{"hashicorp.lru", func(size int) Cache { return NewHashicorpWrapper(size) }},
+		{"hashicorp.exp_hour", func(size int) Cache { return NewHashicorpWrapperExp(size, time.Hour) }},
+		{"hashicorp.exp_50ms", func(size int) Cache { return NewHashicorpWrapperExp(size, time.Millisecond*50) }},
 		{"hashicorp.arc", func(size int) Cache { return NewHashicorpARCWrapper(size) }},
 		{"hashicorp.2Q", func(size int) Cache { return NewHashicorp2QWrapper(size) }},
 	}
 
-	for _, testThreads := range []int{1, 4} {
-		for _, testSize := range []int{10, 1000, 10000} {
-			for _, cache := range caches {
-				testLru(TestParams{testDuration, testThreads, testSize, cache.name, cache.factory(testSize)}, testData)
-				_ = logger.Sync()
+	printHeaders()
+	// for _, testWorkTime := range []time.Duration{0, time.Microsecond, 10 * time.Microsecond, 100 * time.Microsecond} {
+	// 	for _, testThreads := range []int{1, 2, 4, 8, 16} {
+	// for _, testSize := range []int{2000, 10000} {
+	for _, testWorkTime := range []time.Duration{0, 1 * time.Microsecond} {
+		for _, testThreads := range []int{1, 8, 64} {
+			for _, testSize := range []int{100, 10000} {
+				for _, cache := range caches {
+					testLru(
+						TestParams{
+							Duration:  testDuration,
+							MaxCycles: rangeCount * rangeCycles,
+							Threads:   testThreads,
+							Size:      testSize,
+							Name:      cache.name,
+							Cache:     cache.factory(testSize),
+							WorkTime:  testWorkTime,
+						},
+						testData,
+					)
+					_ = logger.Sync()
+				}
 			}
 		}
 	}
@@ -65,7 +119,10 @@ func testLru(testParams TestParams, testData TestData) {
 	globalHits := int64(0)
 	globalCycles := int64(0)
 
-	N := int64(1<<63 - 1)
+	N := int64(testParams.MaxCycles) / int64(threads)
+	if N <= 0 {
+		N = int64(1<<63 - 1)
+	}
 
 	endtimes := time.NewTimer(runtime)
 	go func() {
@@ -74,7 +131,10 @@ func testLru(testParams TestParams, testData TestData) {
 		N = -1
 	}()
 
+	workCycles := uint64(testParams.WorkTime/time.Microsecond) * SpinsPerMicro
+
 	log.Debug("Starting threads.", zap.Int("count", threads))
+	start := time.Now()
 	for i := 0; i < threads; i++ {
 		wg.Add(1)
 		go func(i int) {
@@ -97,6 +157,9 @@ func testLru(testParams TestParams, testData TestData) {
 				} else {
 					cache.Set(key, value)
 				}
+				if workCycles > 0 {
+					spinWait(workCycles)
+				}
 			}
 			atomic.AddInt64(&globalHits, hits)
 			atomic.AddInt64(&globalCycles, int64(cycles))
@@ -105,6 +168,7 @@ func testLru(testParams TestParams, testData TestData) {
 	}
 	log.Debug("Waiting for threads to finish")
 	wg.Wait()
+	duration := time.Since(start)
 	log.Debug("All threads finished. Closing lru")
 	cache.Close()
 	// stats := lru.Stats()
@@ -119,11 +183,52 @@ func testLru(testParams TestParams, testData TestData) {
 	// 	zap.Uint32("reaped", stats.KeysReaped),
 	// 	zap.Uint32("reaper_cycles", stats.ReaperCycles),
 	// )
-	log.Info(
-		"Done",
-		zap.Int64("cycles", globalCycles),
-		zap.Duration("runtime", runtime),
-		zap.Float64("rate_kHz", float64(globalCycles)/(runtime.Seconds()*1000)),
-		zap.Float64("hit_rate", float64(globalHits)*100.0/float64(globalCycles)),
-	)
+
+	// log.Info(
+	// 	"Done",
+	// 	zap.Int64("cyc", globalCycles),
+	// 	zap.Duration("rt", duration),
+	// 	zap.Float64("r_kHz", RoundDigits(float64(globalCycles)/(duration.Seconds()*1000), 2)),
+	// 	zap.Float64("hr", RoundDigits(float64(globalHits)*100.0/float64(globalCycles), 2)),
+	// 	zap.Uint64("wrk_µs", uint64(testParams.WorkTime/time.Microsecond)),
+	// )
+	printResult(globalCycles, globalHits, duration, testParams)
+}
+
+func printHeaders() {
+	fmt.Println(strings.Join([]string{
+		"algorithm",
+		"threads",
+		"size",
+		"work_time_µs",
+		"cycles",
+		"duration_ms",
+		"rate_kHz",
+		"hit_rate_%",
+	}, "\t"))
+}
+
+func printResult(cycles int64, hits int64, duration time.Duration, testParams TestParams) {
+	fmt.Print(testParams.Name)
+	fmt.Print("\t")
+	fmt.Print(testParams.Threads)
+	fmt.Print("\t")
+	fmt.Print(testParams.Size)
+	fmt.Print("\t")
+	fmt.Print(testParams.WorkTime / time.Microsecond)
+	fmt.Print("\t")
+	fmt.Print(cycles)
+	fmt.Print("\t")
+	fmt.Print(int(math.Round(duration.Seconds() * 1000)))
+	fmt.Print("\t")
+	fmt.Print(RoundDigits(float64(cycles)/(duration.Seconds()*1000), 2))
+	fmt.Print("\t")
+	fmt.Print(RoundDigits(float64(hits)*100.0/float64(cycles), 2))
+
+	fmt.Println()
+}
+
+func RoundDigits(val float64, digits int) float64 {
+	scale := math.Pow10(digits)
+	return math.Round(val*scale) / scale
 }

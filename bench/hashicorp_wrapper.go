@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	hlru "github.com/hashicorp/golang-lru"
 )
 
@@ -73,5 +75,39 @@ func (c *Hashicorp2QWrapper) Set(key string, value interface{}) {
 }
 
 func (c *Hashicorp2QWrapper) Close() {
+	c.cache.Purge()
+}
+
+type HashicorpWrapperExp struct {
+	cache *hlru.Cache
+	ttl   time.Duration
+}
+
+func NewHashicorpWrapperExp(size int, ttl time.Duration) *HashicorpWrapperExp {
+	retval, err := hlru.New(size)
+	if err != nil {
+		panic(err)
+	}
+	return &HashicorpWrapperExp{retval, ttl}
+}
+
+func (c *HashicorpWrapperExp) Get(key string) (interface{}, bool) {
+	ret, ok := c.cache.Get(key)
+	if !ok {
+		return nil, false
+	}
+	item, _ := ret.(mapCacheElement)
+	if item.expiration.Before(time.Now()) {
+		return nil, ok
+	}
+
+	return ret, ok
+}
+
+func (c *HashicorpWrapperExp) Set(key string, value interface{}) {
+	c.cache.Add(key, mapCacheElement{value: value, expiration: time.Now().Add(c.ttl)})
+}
+
+func (c *HashicorpWrapperExp) Close() {
 	c.cache.Purge()
 }

@@ -40,9 +40,11 @@ func Benchmark0Write1000ReadOversize(b *testing.B) {
 func Benchmark75Write25ReadOversize(b *testing.B) {
 	benchmarker(b, 1000, 100, 0.25)
 }
+
 func Benchmark25Write75ReadOversize(b *testing.B) {
 	benchmarker(b, 1000, 100, 0.75)
 }
+
 func Benchmark01Write99ReadOversize(b *testing.B) {
 	benchmarker(b, 1000, 100, 0.99)
 }
@@ -58,9 +60,11 @@ func Benchmark0Write1000ReadUnderSize(b *testing.B) {
 func Benchmark75Write25ReadUnderSize(b *testing.B) {
 	benchmarker(b, 100, 1000, 0.25)
 }
+
 func Benchmark25Write75ReadUnderSize(b *testing.B) {
 	benchmarker(b, 100, 1000, 0.75)
 }
+
 func Benchmark01Write99ReadUnderSize(b *testing.B) {
 	benchmarker(b, 100, 1000, 0.99)
 }
@@ -76,9 +80,11 @@ func Benchmark0Write1000ReadExactSize(b *testing.B) {
 func Benchmark75Write25ReadExactSize(b *testing.B) {
 	benchmarker(b, 100, 100, 0.25)
 }
+
 func Benchmark25Write75ReadExactSize(b *testing.B) {
 	benchmarker(b, 100, 100, 0.75)
 }
+
 func Benchmark01Write99ReadExactSize(b *testing.B) {
 	benchmarker(b, 100, 100, 0.99)
 }
