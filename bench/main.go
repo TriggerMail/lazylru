@@ -44,13 +44,16 @@ type Cache interface {
 }
 
 type TestParams struct {
-	Duration  time.Duration
-	MaxCycles int
-	Threads   int
-	Size      int
-	Name      string
-	Cache     Cache
-	WorkTime  time.Duration
+	Duration    time.Duration
+	MaxCycles   int
+	Threads     int
+	Size        int
+	Name        string
+	Cache       Cache
+	WorkTime    time.Duration
+	RangeCount  int
+	RangeSize   int
+	RangeCycles int
 }
 
 var logger *zap.Logger
@@ -92,13 +95,16 @@ func main() {
 				for _, cache := range caches {
 					testLru(
 						TestParams{
-							Duration:  testDuration,
-							MaxCycles: rangeCount * rangeCycles,
-							Threads:   testThreads,
-							Size:      testSize,
-							Name:      cache.name,
-							Cache:     cache.factory(testSize),
-							WorkTime:  testWorkTime,
+							Duration:    testDuration,
+							MaxCycles:   rangeCount * rangeCycles,
+							Threads:     testThreads,
+							Size:        testSize,
+							Name:        cache.name,
+							Cache:       cache.factory(testSize),
+							WorkTime:    testWorkTime,
+							RangeCount:  rangeCount,
+							RangeSize:   rangeSize,
+							RangeCycles: rangeCycles,
 						},
 						testData,
 					)
@@ -198,6 +204,9 @@ func testLru(testParams TestParams, testData TestData) {
 func printHeaders() {
 	fmt.Println(strings.Join([]string{
 		"algorithm",
+		"ranges",
+		"range_size",
+		"range_cycles",
 		"threads",
 		"size",
 		"work_time_µs",
@@ -210,6 +219,12 @@ func printHeaders() {
 
 func printResult(cycles int64, hits int64, duration time.Duration, testParams TestParams) {
 	fmt.Print(testParams.Name)
+	fmt.Print("\t")
+	fmt.Print(testParams.RangeCount)
+	fmt.Print("\t")
+	fmt.Print(testParams.RangeSize)
+	fmt.Print("\t")
+	fmt.Print(testParams.RangeCycles)
 	fmt.Print("\t")
 	fmt.Print(testParams.Threads)
 	fmt.Print("\t")
