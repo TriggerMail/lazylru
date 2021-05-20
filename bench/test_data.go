@@ -45,6 +45,16 @@ type TestDataRanges struct {
 	ranges         []TestDataSimple
 }
 
+type TestDataSpec struct {
+	Ranges         int
+	KeysPerRange   int
+	CyclesPerRange int
+}
+
+func (tds TestDataSpec) ToRanges() *TestDataRanges {
+	return NewTestDataRanges(tds.Ranges, tds.KeysPerRange, tds.CyclesPerRange)
+}
+
 func NewTestDataRanges(ranges int, keysPerRange int, cyclesPerRange int) *TestDataRanges {
 	td := make([]TestDataSimple, ranges)
 	for i := 0; i < ranges; i++ {

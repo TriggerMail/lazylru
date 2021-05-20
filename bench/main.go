@@ -44,16 +44,14 @@ type Cache interface {
 }
 
 type TestParams struct {
-	Duration    time.Duration
-	MaxCycles   int
-	Threads     int
-	Size        int
-	Name        string
-	Cache       Cache
-	WorkTime    time.Duration
-	RangeCount  int
-	RangeSize   int
-	RangeCycles int
+	Duration     time.Duration
+	MaxCycles    int
+	Threads      int
+	Size         int
+	Name         string
+	Cache        Cache
+	WorkTime     time.Duration
+	TestDataSpec TestDataSpec
 }
 
 var logger *zap.Logger
@@ -62,10 +60,6 @@ func main() {
 	logger, _ = zap.NewProduction(zap.WithCaller(false))
 
 	logger.Info("Begin")
-	rangeCount := 5
-	rangeSize := 1000
-	rangeCycles := 1000000
-	testData := NewTestDataRanges(rangeCount, rangeSize, rangeCycles)
 	logger.Info("Data loaded")
 	testDuration := 5 * time.Second
 
@@ -86,29 +80,35 @@ func main() {
 	}
 
 	printHeaders()
-	// for _, testWorkTime := range []time.Duration{0, time.Microsecond, 10 * time.Microsecond, 100 * time.Microsecond} {
-	// 	for _, testThreads := range []int{1, 2, 4, 8, 16} {
-	// for _, testSize := range []int{2000, 10000} {
-	for _, testWorkTime := range []time.Duration{0, 1 * time.Microsecond} {
-		for _, testThreads := range []int{1, 8, 64} {
-			for _, testSize := range []int{100, 10000} {
-				for _, cache := range caches {
-					testLru(
-						TestParams{
-							Duration:    testDuration,
-							MaxCycles:   rangeCount * rangeCycles,
-							Threads:     testThreads,
-							Size:        testSize,
-							Name:        cache.name,
-							Cache:       cache.factory(testSize),
-							WorkTime:    testWorkTime,
-							RangeCount:  rangeCount,
-							RangeSize:   rangeSize,
-							RangeCycles: rangeCycles,
-						},
-						testData,
-					)
-					_ = logger.Sync()
+
+	for _, tds := range []TestDataSpec{
+		{1, 5000, 1000000},
+		{5, 1000, 1000000},
+		{5, 20000, 1000000},
+	} {
+		testData := tds.ToRanges()
+		// for _, testWorkTime := range []time.Duration{0, time.Microsecond, 10 * time.Microsecond, 100 * time.Microsecond} {
+		// 	for _, testThreads := range []int{1, 2, 4, 8, 16} {
+		// for _, testSize := range []int{2000, 10000} {
+		for _, testWorkTime := range []time.Duration{0, 1 * time.Microsecond} {
+			for _, testThreads := range []int{1, 8, 64} {
+				for _, testSize := range []int{100, 10000} {
+					for _, cache := range caches {
+						testLru(
+							TestParams{
+								Duration:     testDuration,
+								MaxCycles:    tds.Ranges * tds.CyclesPerRange,
+								Threads:      testThreads,
+								Size:         testSize,
+								Name:         cache.name,
+								Cache:        cache.factory(testSize),
+								WorkTime:     testWorkTime,
+								TestDataSpec: tds,
+							},
+							testData,
+						)
+						_ = logger.Sync()
+					}
 				}
 			}
 		}
@@ -205,8 +205,8 @@ func printHeaders() {
 	fmt.Println(strings.Join([]string{
 		"algorithm",
 		"ranges",
-		"range_size",
-		"range_cycles",
+		"keys/range",
+		"cycles/range",
 		"threads",
 		"size",
 		"work_time_µs",
@@ -220,11 +220,11 @@ func printHeaders() {
 func printResult(cycles int64, hits int64, duration time.Duration, testParams TestParams) {
 	fmt.Print(testParams.Name)
 	fmt.Print("\t")
-	fmt.Print(testParams.RangeCount)
+	fmt.Print(testParams.TestDataSpec.Ranges)
 	fmt.Print("\t")
-	fmt.Print(testParams.RangeSize)
+	fmt.Print(testParams.TestDataSpec.KeysPerRange)
 	fmt.Print("\t")
-	fmt.Print(testParams.RangeCycles)
+	fmt.Print(testParams.TestDataSpec.CyclesPerRange)
 	fmt.Print("\t")
 	fmt.Print(testParams.Threads)
 	fmt.Print("\t")
