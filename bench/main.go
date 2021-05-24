@@ -179,6 +179,8 @@ func testLru(testParams TestParams, testData TestData) {
 	duration := time.Since(start)
 	log.Debug("All threads finished. Closing lru")
 	cache.Close()
+
+	// disabled since it only works on lazylru and pollutes the output
 	// stats := lru.Stats()
 	// log.Info(
 	// 	"stats",
@@ -190,15 +192,6 @@ func testLru(testParams TestParams, testData TestData) {
 	// 	zap.Uint32("evictions", stats.Evictions),
 	// 	zap.Uint32("reaped", stats.KeysReaped),
 	// 	zap.Uint32("reaper_cycles", stats.ReaperCycles),
-	// )
-
-	// log.Info(
-	// 	"Done",
-	// 	zap.Int64("cyc", globalCycles),
-	// 	zap.Duration("rt", duration),
-	// 	zap.Float64("r_kHz", RoundDigits(float64(globalCycles)/(duration.Seconds()*1000), 2)),
-	// 	zap.Float64("hr", RoundDigits(float64(globalHits)*100.0/float64(globalCycles), 2)),
-	// 	zap.Uint64("wrk_µs", uint64(testParams.WorkTime/time.Microsecond)),
 	// )
 	printResult(globalCycles, globalHits, duration, testParams)
 }
