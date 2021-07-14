@@ -4,6 +4,8 @@ Build status: [![CircleCI](https://circleci.com/gh/TriggerMail/lazylru.svg?style
 
 This is a cache implementation that uses a hash table for lookups and a priority queue to approximate LRU. Appromimate because the usage is not updated on every get. Rather, items close to the head of the queue, those most likely to be read again and least likely to age out, are not updated. This assumption does not hold under every condition -- if the cache is undersized and churning a lot, this implementation will perform worse than an LRU that updates on every read.
 
+Read about it on [Medium](https://medium.com/bluecore-engineering/lazylru-laughing-all-the-way-to-production-19d2a053c3cb) or hear about it on the [Alexa's Input podcast](https://anchor.fm/alexagriffith/episodes/Cache-Only-with-Mike-Hurwitz-e146ob2).
+
 ## What makes this one different
 
 The reason for the occasional updates is not because the updates themselves are expensive -- the [heap](https://golang.org/pkg/container/heap/)-based implementation keeps it quite cheap. Rather, it is the exclusive locking required during that move that drove this design. The lock is more expensive than the move by a wide margin, but is required in concurrent access scenarios. This implementation uses an [RWMutex](https://golang.org/pkg/sync/#RWMutex), but only takes out the exclusive write lock when moving or inserting elements.
