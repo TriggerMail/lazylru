@@ -135,7 +135,7 @@ func testLru(testParams TestParams, testData TestData) {
 	go func() {
 		<-endtimes.C
 		log.Debug("Signalling the end times")
-		N = -1
+		atomic.StoreInt64(&N, -1)
 	}()
 
 	workCycles := uint64(testParams.WorkTime/time.Microsecond) * SpinsPerMicro
@@ -149,7 +149,7 @@ func testLru(testParams TestParams, testData TestData) {
 			log.Debug("Starting thread", zap.Int("thread", i))
 			hits := int64(0)
 			cycles := int64(0)
-			for ; cycles < N; cycles++ {
+			for ; cycles < atomic.LoadInt64(&N); cycles++ {
 				if cycles%10000000 == 0 {
 					log.Debug(
 						"Progress",
