@@ -155,7 +155,7 @@ func testLru(testParams TestParams, testData TestData) {
 						"Progress",
 						zap.Int("thread", i),
 						zap.Int64("count", cycles),
-						zap.Int64("N", N),
+						zap.Int64("N", atomic.LoadInt64(&N)),
 					)
 				}
 				key, value := testData.RandomKV()
