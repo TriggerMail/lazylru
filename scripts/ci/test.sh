@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+
 go env
 go get -t -v ./...
 go get -v -u github.com/jstemmer/go-junit-report

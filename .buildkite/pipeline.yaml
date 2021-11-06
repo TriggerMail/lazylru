@@ -8,6 +8,7 @@ env:
 
 steps:
   - label: ":golang: test"
+    artifact_paths: test-results/go-test-report.xml
     key: "test"
     plugins:
       - fanduel/gcr#v0.1.2:
@@ -22,3 +23,8 @@ steps:
           propagate-environment: true
           volumes:
             - "/root/.ssh/:/root/.ssh/"
+  - wait: ~
+    continue_on_failure: true
+  - plugins:
+      - junit-annotate#v1.9.0:
+          artifacts: test-results/go-test-report.xml
