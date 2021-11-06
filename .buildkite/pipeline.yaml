@@ -1,0 +1,24 @@
+name: lazylru
+description: lazylru build pipeline
+
+env:
+  HOMEBREW_GITHUB_API_TOKEN: ${HOMEBREW_GITHUB_API_TOKEN}
+  GITHUB_TOKEN: ${GITHUB_TOKEN}
+  GOPRIVATE: github.com/TriggerMail
+
+steps:
+  - label: ":golang: test"
+    key: "test"
+    plugins:
+      - fanduel/gcr#v0.1.2:
+          login: true
+      - docker#v3.8.0:
+          image: us.gcr.io/bluecore-ops/dockerfiles/golang:dev-1.17
+          entrypoint: ""
+          workdir: /app
+          entrypoint: ""
+          command:
+          - scripts/ci/test.sh
+          propagate-environment: true
+          volumes:
+            - "/root/.ssh/:/root/.ssh/"
