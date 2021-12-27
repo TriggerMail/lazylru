@@ -44,7 +44,7 @@ steps:
       queue: vmserver
     command: ".buildkite/steps/release"
     plugins:
-      - fanduel/gcr#v0.1.2:
+      - ssh://git@github.com/TriggerMail/coveralls-buildkite-plugin#v1.0.4:
           login: true
     if: build.tag =~ /v[0-9]+(\.[0-9]+)*(-.*)*/
     depends_on:
