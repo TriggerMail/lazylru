@@ -2,12 +2,16 @@ package main
 
 type nullCache struct{}
 
+// NullCache is a cache that holds nothing and returns nothing
 var NullCache = nullCache{}
 
-func (nc nullCache) Get(key string) (interface{}, bool) {
-	return nil, false
+// Get always returns `nil, false``
+func (nc nullCache) Get(key string) (string, bool) {
+	return "", false
 }
 
-func (nc nullCache) Set(key string, value interface{}) {}
+// Set does nothing
+func (nc nullCache) Set(key string, value string) {}
 
+// Close does nothing
 func (nc nullCache) Close() {}

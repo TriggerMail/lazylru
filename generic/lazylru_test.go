@@ -5,19 +5,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TriggerMail/lazylru"
+	lazylru "github.com/TriggerMail/lazylru/generic"
 	"github.com/stretchr/testify/require"
 )
 
-func doTest(t *testing.T, maxItems int, ttl time.Duration, test func(t *testing.T, lru *lazylru.LazyLRU), expected ExpectedStats) {
-	lru := lazylru.New(maxItems, ttl)
+func doTest[K comparable, V any](t *testing.T, maxItems int, ttl time.Duration, test func(t *testing.T, lru *lazylru.LazyLRU[K, V]), expected ExpectedStats) {
+	lru := lazylru.NewT[K, V](maxItems, ttl)
 	test(t, lru)
 	lru.Close()
 	expected.Test(t, lru.Stats())
 }
 
 func TestMakeNew(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, int]) {
 		require.NotNil(t, lru)
 	},
 		ExpectedStats{},
@@ -25,9 +25,9 @@ func TestMakeNew(t *testing.T) {
 }
 
 func TestGetUnknown(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, int]) {
 		v, ok := lru.Get("something new")
-		require.Nil(t, v)
+		require.Equal(t, 0, v)
 		require.False(t, ok)
 	},
 		ExpectedStats{}.WithKeysReadNotFound(1),
@@ -35,22 +35,20 @@ func TestGetUnknown(t *testing.T) {
 }
 
 func TestGetKnown(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		lru.Set("abloy", "medeco")
 		v, ok := lru.Get("abloy")
 		require.True(t, ok)
-		vstr, vok := v.(string)
-		require.True(t, vok)
-		require.Equal(t, "medeco", vstr)
+		require.Equal(t, "medeco", v)
 	},
 		ExpectedStats{}.WithKeysWritten(1).WithKeysReadOK(1),
 	)
 }
 
-func testGetKnownShuffleMitigationHelper(t *testing.T, getter func(lru *lazylru.LazyLRU, key string) (interface{}, bool)) {
-	doTest(t, 100, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+func testGetKnownShuffleMitigationHelper(t *testing.T, getter func(lru *lazylru.LazyLRU[string, int], key string) (int, bool)) {
+	doTest(t, 100, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, int]) {
 		keys := make([]string, 100)
-		values := make([]interface{}, len(keys))
+		values := make([]int, len(keys))
 		for i := 0; i < len(keys); i++ {
 			keys[i] = strconv.FormatInt(int64(i), 10)
 			values[i] = i
@@ -61,18 +59,14 @@ func testGetKnownShuffleMitigationHelper(t *testing.T, getter func(lru *lazylru.
 		for i := 0; i < 100; i++ {
 			v, ok := getter(lru, "0")
 			require.True(t, ok)
-			vint, vok := v.(int)
-			require.True(t, vok)
-			require.Equal(t, 0, vint)
+			require.Equal(t, 0, v)
 		}
 
 		// This should affect 100 reads, but only no shuffles
 		for i := 0; i < 100; i++ {
 			v, ok := getter(lru, "99")
 			require.True(t, ok)
-			vint, vok := v.(int)
-			require.True(t, vok)
-			require.Equal(t, 99, vint)
+			require.Equal(t, 99, v)
 		}
 	},
 		ExpectedStats{}.WithKeysReadOK(200).WithShuffles(1),
@@ -81,14 +75,15 @@ func testGetKnownShuffleMitigationHelper(t *testing.T, getter func(lru *lazylru.
 
 func TestGetKnownShuffleMitigationGet(t *testing.T) {
 	testGetKnownShuffleMitigationHelper(t,
-		func(lru *lazylru.LazyLRU, key string) (interface{}, bool) {
+		func(lru *lazylru.LazyLRU[string, int], key string) (int, bool) {
 			v, ok := lru.Get(key)
 			return v, ok
 		})
 }
+
 func TestGetKnownShuffleMitigationMGet(t *testing.T) {
 	testGetKnownShuffleMitigationHelper(t,
-		func(lru *lazylru.LazyLRU, key string) (interface{}, bool) {
+		func(lru *lazylru.LazyLRU[string, int], key string) (int, bool) {
 			d := lru.MGet(key)
 			v, ok := d[key]
 			return v, ok
@@ -97,7 +92,7 @@ func TestGetKnownShuffleMitigationMGet(t *testing.T) {
 }
 
 func TestMGetUnknown(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		found := lru.MGet("a", "b", "c")
 		require.Equal(t, 0, len(found))
 	},
@@ -106,26 +101,24 @@ func TestMGetUnknown(t *testing.T) {
 }
 
 func TestMGetKnown(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		err := lru.MSet(
 			[]string{"abloy", "schlage"},
-			[]interface{}{"medeco", "kwikset"},
+			[]string{"medeco", "kwikset"},
 		)
 		require.NoError(t, err)
 		found := lru.MGet("abloy", "schlage")
 		require.Equal(t, 2, len(found))
 		v, ok := found["abloy"]
 		require.True(t, ok)
-		vstr, vok := v.(string)
-		require.True(t, vok)
-		require.Equal(t, "medeco", vstr)
+		require.Equal(t, "medeco", v)
 	},
 		ExpectedStats{}.WithKeysWritten(2).WithKeysReadOK(2),
 	)
 }
 
 func TestSetNTimes(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		require.Equal(t, 0, lru.Len())
 		lru.Set("abloy", "schlage")
 		require.Equal(t, 1, lru.Len())
@@ -139,7 +132,7 @@ func TestSetNTimes(t *testing.T) {
 }
 
 func TestMGetOneKnown(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		lru.Set("abloy", "medeco")
 
 		found := lru.MGet("abloy")
@@ -147,19 +140,17 @@ func TestMGetOneKnown(t *testing.T) {
 
 		v, ok := found["abloy"]
 		require.True(t, ok)
-		vstr, vok := v.(string)
-		require.True(t, vok)
-		require.Equal(t, "medeco", vstr)
+		require.Equal(t, "medeco", v)
 	},
 		ExpectedStats{}.WithKeysWritten(1).WithKeysReadOK(1),
 	)
 }
 
 func TestMSetBad(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		err := lru.MSet(
 			[]string{"abloy"},
-			[]interface{}{"medeco", "kwikset"},
+			[]string{"medeco", "kwikset"},
 		)
 		require.Error(t, err)
 	},
@@ -168,10 +159,10 @@ func TestMSetBad(t *testing.T) {
 }
 
 func TestMSetTooMany(t *testing.T) {
-	doTest(t, 5, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 5, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		err := lru.MSet(
 			[]string{"a", "b", "c", "d", "e", "f", "g"},
-			[]interface{}{"a", "b", "c", "d", "e", "f", "g"},
+			[]string{"a", "b", "c", "d", "e", "f", "g"},
 		)
 		require.NoError(t, err)
 		require.Equal(t, 5, lru.Len())
@@ -181,10 +172,10 @@ func TestMSetTooMany(t *testing.T) {
 }
 
 func TestMSetTooManyTwice(t *testing.T) {
-	doTest(t, 5, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 5, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		err := lru.MSet(
 			[]string{"a", "b", "c", "d", "e", "f", "g"},
-			[]interface{}{"a", "b", "c", "d", "e", "f", "g"},
+			[]string{"a", "b", "c", "d", "e", "f", "g"},
 		)
 		require.NoError(t, err)
 		require.Equal(t, 5, lru.Len())
@@ -194,7 +185,7 @@ func TestMSetTooManyTwice(t *testing.T) {
 		// "g" will still be in the set, but "a" will evict something
 		err = lru.MSet(
 			[]string{"a", "g"},
-			[]interface{}{"a", "g"},
+			[]string{"a", "g"},
 		)
 
 		require.NoError(t, err)
@@ -213,7 +204,7 @@ func TestMSetTooManyTwice(t *testing.T) {
 }
 
 func TestMGetExpired(t *testing.T) {
-	doTest(t, 5, time.Millisecond, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 5, time.Millisecond, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		lru.Set("abloy", "medeco")
 		time.Sleep(time.Millisecond * 10)
 
@@ -229,7 +220,7 @@ func TestMGetExpired(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-	lru := lazylru.New(10, time.Hour)
+	lru := lazylru.NewT[string, string](10, time.Hour)
 	require.True(t, lru.IsRunning())
 	lru.Close()
 	time.Sleep(time.Millisecond * 10)
@@ -238,13 +229,13 @@ func TestClose(t *testing.T) {
 }
 
 func TestCloseWithReap(t *testing.T) {
-	doTest(t, 10, 10*time.Millisecond, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, 10*time.Millisecond, func(t *testing.T, lru *lazylru.LazyLRU[string, int]) {
 		require.True(t, lru.IsRunning())
 
-		lru.SetTTL("abloy", "medeco", time.Hour)
+		lru.SetTTL("abloy", 0, time.Hour)
 		err := lru.MSetTTL(
 			[]string{"a", "b", "c", "d", "e"},
-			[]interface{}{1, 2, 3, 4, 5},
+			[]int{1, 2, 3, 4, 5},
 			0,
 		)
 		require.NoError(t, err)
@@ -263,7 +254,7 @@ func TestCloseWithReap(t *testing.T) {
 }
 
 func TestReap(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		lru.Reap()
 
 		lru.SetTTL("abloy", "medeco", time.Millisecond*10)
@@ -289,7 +280,7 @@ func TestReap(t *testing.T) {
 }
 
 func TestPushBeyondCapacity(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		keys := make([]string, 100)
 		for i := 0; i < len(keys); i++ {
 			keys[i] = strconv.FormatInt(int64(i), 10)
@@ -303,9 +294,7 @@ func TestPushBeyondCapacity(t *testing.T) {
 		for _, key := range keys[90:] {
 			v, ok := lru.Get(key)
 			require.True(t, ok, "key: %s", key)
-			vstr, vok := v.(string)
-			require.True(t, vok, "key: %s", key)
-			require.Equal(t, key, vstr, "key: %s", key)
+			require.Equal(t, key, v, "key: %s", key)
 		}
 	},
 		ExpectedStats{}.
@@ -317,7 +306,7 @@ func TestPushBeyondCapacity(t *testing.T) {
 }
 
 func TestPushBeyondCapacitySave28(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		keys := make([]string, 100)
 		for i := 0; i < len(keys); i++ {
 			keys[i] = strconv.FormatInt(int64(i), 10)
@@ -341,8 +330,9 @@ func TestPushBeyondCapacitySave28(t *testing.T) {
 			WithKeysReadNotFound(1),
 	)
 }
+
 func TestPushBeyondCapacitySave28WithMGet(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		keys := make([]string, 100)
 		for i := 0; i < len(keys); i++ {
 			keys[i] = strconv.FormatInt(int64(i), 10)
@@ -369,12 +359,12 @@ func TestPushBeyondCapacitySave28WithMGet(t *testing.T) {
 }
 
 func TestGetExpired(t *testing.T) {
-	doTest(t, 10, 0, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, 0, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		lru.Set("a", "a")
 		require.Equal(t, 1, lru.Len())
 		v, ok := lru.Get("a")
 		require.False(t, ok)
-		require.Nil(t, v)
+		require.Equal(t, "", v)
 		require.Equal(t, 0, lru.Len())
 	},
 		ExpectedStats{}.
@@ -384,7 +374,7 @@ func TestGetExpired(t *testing.T) {
 }
 
 func TestExpireCleanup(t *testing.T) {
-	doTest(t, 10, 1, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, 1, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		lru.Set("a", "a")
 		require.Equal(t, 1, lru.Len())
 		time.Sleep(time.Millisecond * 100)
@@ -397,7 +387,7 @@ func TestExpireCleanup(t *testing.T) {
 }
 
 func TestMGetSomeExpired(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
 		lru.Set("a", "a")
 		lru.SetTTL("b", "b", 0)
 		require.Equal(t, 2, lru.Len())
@@ -405,7 +395,7 @@ func TestMGetSomeExpired(t *testing.T) {
 		require.Equal(t, 1, len(vals))
 		v, ok := vals["a"]
 		require.True(t, ok)
-		require.Equal(t, "a", v.(string))
+		require.Equal(t, "a", v)
 		require.Equal(t, 1, lru.Len())
 	},
 		ExpectedStats{}.
@@ -413,6 +403,19 @@ func TestMGetSomeExpired(t *testing.T) {
 			WithKeysReadOK(1).
 			WithKeysReadExpired(1),
 	)
+}
+
+func TestNonGenericFactory(t *testing.T) {
+	lru := lazylru.New(10, time.Hour)
+	lru.Close()
+	lru.Set("abloy", "medeco")
+	v, ok := lru.Get("abloy")
+	require.True(t, ok)
+	vstr, ok := v.(string)
+	require.True(t, ok)
+	require.Equal(t, "medeco", vstr)
+	es := ExpectedStats{}.WithKeysWritten(1).WithKeysReadOK(1)
+	es.Test(t, lru.Stats())
 }
 
 func TestZeroSize(t *testing.T) {

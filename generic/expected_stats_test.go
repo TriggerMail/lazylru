@@ -3,7 +3,7 @@ package lazylru_test
 import (
 	"testing"
 
-	"github.com/TriggerMail/lazylru"
+	lazylru "github.com/TriggerMail/lazylru/generic"
 	"github.com/stretchr/testify/require"
 )
 

@@ -1,6 +1,6 @@
 # LazyLRU: An in-memory cache with limited locking
 
-Build status: [![Build status](https://badge.buildkite.com/ad7c5afa9718790714c46a0dbf44ff8cb72ebdb7dcc5e84fb7.svg?branch=master)](https://buildkite.com/bluecore-inc/lazylru)
+Build status: [![Build status](https://badge.buildkite.com/ad7c5afa9718790714c46a0dbf44ff8cb72ebdb7dcc5e84fb7.svg?branch=master)](https://buildkite.com/bluecore-inc/lazylru) [![Coverage Status](https://coveralls.io/repos/github/TriggerMail/lazylru/badge.svg?branch=master)](https://coveralls.io/github/TriggerMail/lazylru?branch=master)
 
 This is a cache implementation that uses a hash table for lookups and a priority queue to approximate LRU. Approximate because the usage is not updated on every get. Rather, items close to the head of the queue, those most likely to be read again and least likely to age out, are not updated. This assumption does not hold under every condition -- if the cache is undersized and churning a lot, this implementation will perform worse than an LRU that updates on every read.
 
@@ -39,9 +39,13 @@ If sharding makes sense for you, it should be pretty easy to make a list of Lazy
 
 ## Usage
 
-Like Go's [`heap`](https://golang.org/pkg/container/heap/) itself, Lazy LRU uses the `interface{}` type for its values. That means that casting is required on the way out. As soon as Go has [generics](https://go.googlesource.com/proposal/+/master/design/go2draft-contracts.md), I'll get right on it. For now, it looks like this:
+### Go &lt;= 1.17
+
+Like Go's [`heap`](https://golang.org/pkg/container/heap/) itself, Lazy LRU uses the `interface{}` type for its values. That means that casting is required on the way out. I promised that as soon as Go had [generics](https://go.googlesource.com/proposal/+/master/design/go2draft-contracts.md), I'd get right on it. See below!
 
 ```go
+// import "github.com/TriggerMail/lazylru"
+
 lru := lazylru.New(10, 5 * time.minute)
 defer lru.Close()
 
@@ -49,6 +53,23 @@ lru.Set("abloy", "medeco")
 
 v, ok := lru.Get("abloy")
 vstr, vok := v.(string)
+```
+
+### Go 1.18 (beta)
+
+The Go [`heap`](https://golang.org/pkg/container/heap/) has been copied and made to support generics. That allows the LRU to also support generics. To access that feature, import the `lazylru/generic` module. To maintain compatibility, the `New` factory method still uses `string` keys and `interface{}` values. However, this is just a wrapper over the `NewT[K,V]` factory method.
+
+Once Go 1.18 is released, baked in, commonly used, etc, the `lazylru/generic` module will probably be retired and only the `lazylru` module will remain. Because the `New` factory method is the same, the changes here are purely additive and are in the spirit of the [compatibility guarantee](https://go.dev/doc/go1compat).
+
+```go
+// import "github.com/TriggerMail/lazylru/generic"
+
+lru := lazylru.NewT[string, string](10, 5 * time.minute)
+defer lru.Close()
+
+lru.Set("abloy", "medeco")
+
+vstr, ok := lru.Get("abloy")
 ```
 
 It is important to note that `LazyLRU` should be closed if the TTL is non-zero. Otherwise, the background reaper thread will be left running. To be fair, under most circumstances I can imagine, the cache lives as long as the host process. So do what you like.

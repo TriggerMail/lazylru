@@ -5,27 +5,32 @@ import (
 	"time"
 )
 
-type mapCacheElement struct {
+type mapCacheElement[V any] struct {
 	expiration time.Time
-	value      interface{}
+	value      V
 }
 
-type MapCache struct {
+// MapCache is a simple, map-based implementation of a cache. The replacement
+// "strategy" is random. All operations take an exclusive lock. It is meant to
+// be the control in our experiment.
+type MapCache[K comparable, V any] struct {
 	mut     sync.Mutex
-	data    map[string]mapCacheElement
+	data    map[K]mapCacheElement[V]
 	ttl     time.Duration
 	maxSize int
 }
 
-func NewMapCache(maxSize int, ttl time.Duration) *MapCache {
-	return &MapCache{
-		data:    map[string]mapCacheElement{},
+// NewMapCache creates a new cache with a given size and item time-to-live
+func NewMapCache[K comparable, V any](maxSize int, ttl time.Duration) *MapCache[K, V] {
+	return &MapCache[K, V]{
+		data:    map[K]mapCacheElement[V]{},
 		ttl:     ttl,
 		maxSize: maxSize,
 	}
 }
 
-func (mc *MapCache) Get(key string) (interface{}, bool) {
+// Get retrieves an item from the cache
+func (mc *MapCache[K, V]) Get(key K) (V, bool) {
 	mc.mut.Lock()
 	ret, ok := mc.data[key]
 	if ok && ret.expiration.Before(time.Now()) {
@@ -34,12 +39,14 @@ func (mc *MapCache) Get(key string) (interface{}, bool) {
 	}
 	mc.mut.Unlock()
 	if ok {
-		return ret, ok
+		return ret.value, ok
 	}
-	return nil, false
+	var zeroval V
+	return zeroval, false
 }
 
-func (mc *MapCache) Set(key string, value interface{}) {
+// Set adds an item to the cache
+func (mc *MapCache[K, V]) Set(key K, value V) {
 	mc.mut.Lock()
 	// are we about to run out of space?
 	if len(mc.data) == mc.maxSize {
@@ -48,18 +55,19 @@ func (mc *MapCache) Set(key string, value interface{}) {
 		if !ok {
 			// is it worth the trouble to try to find expired elements?
 			// probably not
-			var k string
+			var k K
 			for k = range mc.data {
 				break
 			}
 			delete(mc.data, k)
 		}
 	}
-	mc.data[key] = mapCacheElement{
+	mc.data[key] = mapCacheElement[V]{
 		value:      value,
 		expiration: time.Now().Add(mc.ttl),
 	}
 	mc.mut.Unlock()
 }
 
-func (mc *MapCache) Close() {}
+// Close doesn't do anything in this implementation
+func (mc *MapCache[K, V]) Close() {}

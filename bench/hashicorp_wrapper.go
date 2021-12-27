@@ -6,108 +6,121 @@ import (
 	hlru "github.com/hashicorp/golang-lru"
 )
 
-type HashicorpWrapper struct {
-	cache *hlru.Cache
+type hashicorpCache interface {
+	Get(key interface{}) (value interface{}, ok bool)
+	Add(key, value interface{})
+	Purge()
 }
 
-func NewHashicorpWrapper(size int) *HashicorpWrapper {
+// ignoreEvict is a type alias to make the Add method of Cache like the others
+type ignoreEvict struct {
+	*hlru.Cache
+}
+
+func (c *ignoreEvict) Get(key interface{}) (value interface{}, ok bool) {
+	return c.Cache.Get(key)
+}
+
+func (c *ignoreEvict) Add(key, value interface{}) {
+	c.Cache.Add(key, value)
+}
+
+func (c *ignoreEvict) Purge() {
+	c.Cache.Purge()
+}
+
+// HashicorpWrapper wraps hashicorp/golang-lru.Cache in an interface for testing
+type HashicorpWrapper[K comparable, V any] struct {
+	cache hashicorpCache
+}
+
+// Get looks an item up in the cache. The boolean indicates if the key was found
+func (c *HashicorpWrapper[K, V]) Get(key K) (V, bool) {
+	var retval V
+	v, ok := c.cache.Get(key)
+	if ok {
+		retval, ok = v.(V)
+	}
+	return retval, ok
+}
+
+// Set adds or updates a value in the cache
+func (c *HashicorpWrapper[K, V]) Set(key string, value string) {
+	c.cache.Add(key, value)
+}
+
+// Close removes everything from the cache
+func (c *HashicorpWrapper[K, V]) Close() {
+	c.cache.Purge()
+}
+
+// NewHashicorpWrapper initializes a new cache with capacity of `size`
+func NewHashicorpWrapper[K comparable, V any](size int) *HashicorpWrapper[K, V] {
 	retval, err := hlru.New(size)
 	if err != nil {
 		panic(err)
 	}
-	return &HashicorpWrapper{retval}
+	return &HashicorpWrapper[K, V]{&ignoreEvict{retval}}
 }
 
-func (c *HashicorpWrapper) Get(key string) (interface{}, bool) {
-	return c.cache.Get(key)
-}
-
-func (c *HashicorpWrapper) Set(key string, value interface{}) {
-	c.cache.Add(key, value)
-}
-
-func (c *HashicorpWrapper) Close() {
-	c.cache.Purge()
-}
-
-type HashicorpARCWrapper struct {
-	cache *hlru.ARCCache
-}
-
-func NewHashicorpARCWrapper(size int) *HashicorpARCWrapper {
+// NewHashicorpARCWrapper initializes a new cache with capacity of `size`
+func NewHashicorpARCWrapper[K comparable, V any](size int) *HashicorpWrapper[K, V] {
 	retval, err := hlru.NewARC(size)
 	if err != nil {
 		panic(err)
 	}
-	return &HashicorpARCWrapper{retval}
+	return &HashicorpWrapper[K, V]{retval}
 }
 
-func (c *HashicorpARCWrapper) Get(key string) (interface{}, bool) {
-	return c.cache.Get(key)
-}
-
-func (c *HashicorpARCWrapper) Set(key string, value interface{}) {
-	c.cache.Add(key, value)
-}
-
-func (c *HashicorpARCWrapper) Close() {
-	c.cache.Purge()
-}
-
-type Hashicorp2QWrapper struct {
-	cache *hlru.TwoQueueCache
-}
-
-func NewHashicorp2QWrapper(size int) *Hashicorp2QWrapper {
+// NewHashicorp2QWrapper initializes a new cache with capacity of `size`
+func NewHashicorp2QWrapper[K comparable, V any](size int) *HashicorpWrapper[K, V] {
 	retval, err := hlru.New2Q(size)
 	if err != nil {
 		panic(err)
 	}
-	return &Hashicorp2QWrapper{retval}
+	return &HashicorpWrapper[K, V]{retval}
 }
 
-func (c *Hashicorp2QWrapper) Get(key string) (interface{}, bool) {
-	return c.cache.Get(key)
-}
-
-func (c *Hashicorp2QWrapper) Set(key string, value interface{}) {
-	c.cache.Add(key, value)
-}
-
-func (c *Hashicorp2QWrapper) Close() {
-	c.cache.Purge()
-}
-
-type HashicorpWrapperExp struct {
+// HashicorpWrapperExp is a wrapper around the hashicorp.cache that stores items
+// in an envelope that enforces a time-to-live constraint
+type HashicorpWrapperExp[K comparable, V any] struct {
 	cache *hlru.Cache
 	ttl   time.Duration
 }
 
-func NewHashicorpWrapperExp(size int, ttl time.Duration) *HashicorpWrapperExp {
+// NewHashicorpWrapperExp initializes a new cache with capacity of `size`
+func NewHashicorpWrapperExp[K comparable, V any](size int, ttl time.Duration) *HashicorpWrapperExp[K, V] {
 	retval, err := hlru.New(size)
 	if err != nil {
 		panic(err)
 	}
-	return &HashicorpWrapperExp{retval, ttl}
+	return &HashicorpWrapperExp[K, V]{retval, ttl}
 }
 
-func (c *HashicorpWrapperExp) Get(key string) (interface{}, bool) {
+// Get looks an item up in the cache. The boolean indicates if the key was found
+func (c *HashicorpWrapperExp[K, V]) Get(key K) (V, bool) {
+	var zeroval V
 	ret, ok := c.cache.Get(key)
 	if !ok {
-		return nil, false
+		return zeroval, false
 	}
-	item, _ := ret.(mapCacheElement)
+	item, ok := ret.(mapCacheElement[V])
+	if !ok {
+		return zeroval, false
+	}
 	if item.expiration.Before(time.Now()) {
-		return nil, ok
+		return zeroval, ok
 	}
 
-	return ret, ok
+	return item.value, ok
 }
 
-func (c *HashicorpWrapperExp) Set(key string, value interface{}) {
-	c.cache.Add(key, mapCacheElement{value: value, expiration: time.Now().Add(c.ttl)})
+// Set adds or updates a value in the cache
+func (c *HashicorpWrapperExp[K, V]) Set(key K, value V) {
+	c.cache.Add(key, mapCacheElement[V]{value: value, expiration: time.Now().Add(c.ttl)})
 }
 
-func (c *HashicorpWrapperExp) Close() {
+// Close removes everything from the cache
+func (c *HashicorpWrapperExp[K, V]) Close() {
 	c.cache.Purge()
 }

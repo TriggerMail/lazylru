@@ -1,4 +1,4 @@
-package lazylru_test
+package main_test
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/TriggerMail/lazylru"
+	lazylruT "github.com/TriggerMail/lazylru/generic"
 )
 
 const keycnt = 100000
@@ -56,6 +57,44 @@ func (bc benchconfig) Interface(b *testing.B) {
 	}
 }
 
+func (bc benchconfig) Generic(b *testing.B) {
+	lru := lazylruT.NewT[string, int](bc.capacity, time.Minute)
+	defer lru.Close()
+	for i := 0; i < bc.keyCount; i++ {
+		lru.Set(keys[i], i)
+	}
+
+	runtime.GC()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ix := rand.Intn(bc.keyCount)
+		if rand.Float64() < bc.readRate {
+			lru.Get(keys[ix])
+		} else {
+			lru.Set(keys[ix], ix)
+		}
+	}
+}
+
+func (bc benchconfig) GenInterface(b *testing.B) {
+	lru := lazylruT.New(bc.capacity, time.Minute)
+	defer lru.Close()
+	for i := 0; i < bc.keyCount; i++ {
+		lru.Set(keys[i], i)
+	}
+
+	runtime.GC()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ix := rand.Intn(bc.keyCount)
+		if rand.Float64() < bc.readRate {
+			lru.Get(keys[ix])
+		} else {
+			lru.Set(keys[ix], ix)
+		}
+	}
+}
+
 func Benchmark(b *testing.B) {
 	for _, bc := range []benchconfig{
 		{1, 1, 0.5}, // this is meant as a warm-up
@@ -76,5 +115,7 @@ func Benchmark(b *testing.B) {
 		{100, 100, 0.99},
 	} {
 		b.Run(bc.Name()+"/interface_based", bc.Interface)
+		b.Run(bc.Name()+"/gen[string,iface]", bc.GenInterface)
+		b.Run(bc.Name()+"/gen[string,int]", bc.Generic)
 	}
 }
