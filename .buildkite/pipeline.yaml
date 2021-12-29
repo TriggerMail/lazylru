@@ -14,19 +14,29 @@ steps:
       queue: vmserver
     env:
       COVERALLS_TOKEN: ${COVERALLS_TOKEN}
-    command: "earthly --secret COVERALLS_TOKEN +ci-interface"
+    command: "earthly --secret COVERALLS_TOKEN +ci-interface --BUILD_NUMBER=$BUILDKITE_BUILD_NUMBER"
     artifact_paths: test-results/interface/*.xml
   - label: "bench"
     key: "bench"
+    plugins:
+      - ssh://git@github.com/TriggerMail/coveralls-buildkite-plugin#v1.0.4:
+          login: true
     agents:
       queue: vmserver
-    command: "earthly +ci-bench"
+    env:
+      COVERALLS_TOKEN: ${COVERALLS_TOKEN}
+    command: "earthly --secret COVERALLS_TOKEN +ci-bench --BUILD_NUMBER=$BUILDKITE_BUILD_NUMBER"
     artifact_paths: test-results/bench/*.xml
   - label: "generic"
     key: "generic"
+    plugins:
+      - ssh://git@github.com/TriggerMail/coveralls-buildkite-plugin#v1.0.4:
+          login: true
     agents:
       queue: vmserver
-    command: "earthly +ci-generic"
+    env:
+      COVERALLS_TOKEN: ${COVERALLS_TOKEN}
+    command: "earthly --secret COVERALLS_TOKEN +ci-generic --BUILD_NUMBER=$BUILDKITE_BUILD_NUMBER"
     artifact_paths: test-results/generic/*.xml
   - label: ":golang: release"
     key: "release"

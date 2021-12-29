@@ -24,31 +24,38 @@ all:
     BUILD +all-generic
 
 ci-bench:
+    ARG --required BUILD_NUMBER
     BUILD +fmt-bench
     BUILD +lint-bench
     BUILD +vet-bench
     COPY --dir +test-bench/files ./test-results/bench
     SAVE ARTIFACT ./test-results/bench AS LOCAL test-results/bench
 
+    BUILD +publish-coverage-bench --BUILD_NUMBER=$BUILD_NUMBER
+
 ci-interface:
+    ARG --required BUILD_NUMBER
     BUILD +fmt-interface
     BUILD +lint-interface
     BUILD +vet-interface
     COPY --dir +test-interface/files ./test-results/interface
     SAVE ARTIFACT ./test-results/interface AS LOCAL test-results/interface
-    BUILD +publish-coverage
+    BUILD +publish-coverage-interface --BUILD_NUMBER=$BUILD_NUMBER
 
 ci-generic:
+    ARG --required BUILD_NUMBER
     BUILD +fmt-generic
     BUILD +lint-generic
     BUILD +vet-generic
     COPY --dir +test-generic/files ./test-results/generic
     SAVE ARTIFACT ./test-results/generic AS LOCAL test-results/generic
+    BUILD +publish-coverage-generic --BUILD_NUMBER=$BUILD_NUMBER
 
 ci:
-    BUILD +ci-bench
-    BUILD +ci-interface
-    BUILD +ci-generic
+    ARG --required BUILD_NUMBER
+    BUILD +ci-bench --BUILD_NUMBER=$BUILD_NUMBER
+    BUILD +ci-interface --BUILD_NUMBER=$BUILD_NUMBER
+    BUILD +ci-generic --BUILD_NUMBER=$BUILD_NUMBER
 
 go-mod-bench:
     WORKDIR /bench
@@ -121,8 +128,10 @@ vendor-interface:
 
 vendor-generic:
     FROM +go-mod-generic
-    COPY ./generic .
-    WORKDIR /generic
+    WORKDIR /app
+    COPY --dir .git .
+    COPY ./generic ./generic
+    WORKDIR /app/generic
     RUN --ssh go mod vendor
     SAVE ARTIFACT . files
 
@@ -179,7 +188,7 @@ test-bench:
     # To both see the output in the console AND convert into junit-style results
     # to send to the plug-in, we need to run the tests, writing to a file, then
     # send that file to go-junit-report
-    RUN 2>&1 go test -race -v ./... -cover -coverprofile test-results/cover.out | tee test-results/go-test-bench.out
+    RUN 2>&1 go test -race -v ./... -cover -coverprofile=test-results/cover.out | tee test-results/go-test-bench.out
     RUN cat test-results/go-test-bench.out | $GOPATH/bin/go-junit-report > test-results/go-test-bench-report.xml
     SAVE ARTIFACT test-results files
 
@@ -203,7 +212,7 @@ test-generic:
     # To both see the output in the console AND convert into junit-style results
     # to send to the plug-in, we need to run the tests, writing to a file, then
     # send that file to go-junit-report
-    RUN 2>&1 go test -race -v ./... -cover -coverprofile test-results/cover.out | tee test-results/go-test-generic.out
+    RUN 2>&1 go test -race -v ./... -cover -coverprofile=test-results/cover.out | tee test-results/go-test-generic.out
     RUN cat test-results/go-test-generic.out | $GOPATH/bin/go-junit-report > test-results/go-test-generic-report.xml
     SAVE ARTIFACT test-results files
 
@@ -213,10 +222,38 @@ test:
     COPY --dir +test-generic/files ./test-results/generic
     SAVE ARTIFACT ./test-results AS LOCAL test-results
 
-publish-coverage:
+publish-coverage-interface:
+    ARG --required BUILD_NUMBER
     FROM +test-interface
     COPY +goveralls/go/bin/goveralls /go/bin/goveralls
-    RUN --secret COVERALLS_TOKEN=+secrets/COVERALLS_TOKEN 2>&1 goveralls -service=buildkite -coverprofile=test-results/cover.out
+    RUN --no-cache --secret COVERALLS_TOKEN=+secrets/COVERALLS_TOKEN \
+        goveralls \
+        -jobnumber="$BUILD_NUMBER" \
+        -flagname=interface \
+        -service=buildkite \
+        -coverprofile=test-results/cover.out
+
+publish-coverage-bench:
+    ARG --required BUILD_NUMBER
+    FROM +test-bench
+    COPY +goveralls/go/bin/goveralls /go/bin/goveralls
+    RUN --no-cache --secret COVERALLS_TOKEN=+secrets/COVERALLS_TOKEN \
+        goveralls \
+        -jobnumber="$BUILD_NUMBER" \
+        -flagname=bench \
+        -service=buildkite \
+        -coverprofile=test-results/cover.out
+
+publish-coverage-generic:
+    ARG --required BUILD_NUMBER
+    FROM +test-generic
+    COPY +goveralls/go/bin/goveralls /go/bin/goveralls
+    RUN --no-cache --secret COVERALLS_TOKEN=+secrets/COVERALLS_TOKEN \
+        goveralls \
+        -jobnumber="$BUILD_NUMBER" \
+        -flagname=generic \
+        -service=buildkite \
+        -coverprofile=test-results/cover.out
 
 # These are tools that are used in the targets above
 goveralls:
