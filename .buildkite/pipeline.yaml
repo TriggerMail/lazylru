@@ -23,6 +23,17 @@ steps:
           propagate-environment: true
           volumes:
             - "/root/.ssh/:/root/.ssh/"
+  - label: ":golang: release"
+    key: "release"
+    agents:
+      queue: vmserver
+    command: ".buildkite/steps/release"
+    plugins:
+      - fanduel/gcr#v0.1.2:
+          login: true
+    if: build.tag =~ /v[0-9]+(\.[0-9]+)*(-.*)*/
+    depends_on:
+      - "test"
   - wait: ~
     continue_on_failure: true
   - plugins:

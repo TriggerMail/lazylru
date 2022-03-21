@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+
+config_git() {
+      echo "configuring git..."
+      git config --global url."git@github.com:".insteadOf "https://github.com/"
+}
+
+# vi: ft=sh
