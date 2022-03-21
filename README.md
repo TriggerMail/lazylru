@@ -55,11 +55,13 @@ v, ok := lru.Get("abloy")
 vstr, vok := v.(string)
 ```
 
-### Go 1.18 (beta)
+### Go &gt;= 1.18
 
 The Go [`heap`](https://golang.org/pkg/container/heap/) has been copied and made to support generics. That allows the LRU to also support generics. To access that feature, import the `lazylru/generic` module. To maintain compatibility, the `New` factory method still uses `string` keys and `interface{}` values. However, this is just a wrapper over the `NewT[K,V]` factory method.
 
-Once Go 1.18 is released, baked in, commonly used, etc, the `lazylru/generic` module will probably be retired and only the `lazylru` module will remain. Because the `New` factory method is the same, the changes here are purely additive and are in the spirit of the [compatibility guarantee](https://go.dev/doc/go1compat).
+Once Go 1.18 is baked-in and commonly used, the `lazylru/generic` module will be retired and only the `lazylru` module will remain. Because the `New` factory method is the same, the changes here are purely additive and are in the spirit of the [compatibility guarantee](https://go.dev/doc/go1compat). Because LazyLRU is not yet at 1.0, removing the `lazylru/generic` module isn't out-of-bounds and it will be removed within a few months. According to the [2020 Go Developer Survey](https://go.dev/blog/survey2020-results), ~90% of users who are consistent with upgrades upgrade Go versions within 6 months.
+
+As such, the plan is to move the generic code up to the main package by September, 2022 and fully deprecate the `lazylru/generic` package by March, 2023.
 
 ```go
 // import "github.com/TriggerMail/lazylru/generic"
