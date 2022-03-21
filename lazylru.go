@@ -18,16 +18,16 @@ import (
 // undersized and churning a lot, this implementation will perform worse than an
 // LRU that updates on every read.
 type LazyLRU struct {
-	items     itemPQ
+	doneCh    chan int
 	index     map[string]*item
+	items     itemPQ
 	maxItems  int
 	itemIx    uint64
-	lock      sync.RWMutex
 	ttl       time.Duration
-	doneCh    chan int
+	stats     Stats
+	lock      sync.RWMutex
 	isRunning bool
 	isClosing bool
-	stats     Stats
 }
 
 // New creates a LazyLRU with the given capacity and default expiration. If
@@ -131,7 +131,7 @@ func (lru *LazyLRU) reap(start int, deathList []*item) {
 			break
 		}
 		if start < 0 {
-			start = rand.Intn(len(lru.items))
+			start = rand.Intn(len(lru.items)) //nolint:gosec
 		}
 		end := start + 100 // why 100? no idea
 		if end > len(lru.items) {

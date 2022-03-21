@@ -19,16 +19,16 @@ import (
 // undersized and churning a lot, this implementation will perform worse than an
 // LRU that updates on every read.
 type LazyLRU[K comparable, V any] struct {
-	items     itemPQ[K, V]
+	doneCh    chan int
 	index     map[K]*item[K, V]
+	items     itemPQ[K, V]
 	maxItems  int
 	itemIx    uint64
-	lock      sync.RWMutex
 	ttl       time.Duration
-	doneCh    chan int
+	stats     Stats
+	lock      sync.RWMutex
 	isRunning bool
 	isClosing bool
-	stats     Stats
 }
 
 // New creates a LazyLRU[string, interface{} with the given capacity and default

@@ -7,10 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type TestingWrapper struct {
-	t *testing.T
-}
-
 type ExpectedStats struct {
 	KeysWritten      *uint32
 	KeysReadOK       *uint32

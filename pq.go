@@ -7,12 +7,11 @@ import (
 
 // An item is something we manage in a insertNumber queue.
 type item struct {
-	value        interface{} // The value of the item; arbitrary.
-	insertNumber uint64      // The insertNumber is used for priority (age)
-	// The index is needed by update and is maintained by the heap.Interface methods.
-	index      int // The index of the item in the heap.
-	key        string
-	expiration time.Time
+	expiration   time.Time
+	value        interface{}
+	key          string
+	insertNumber uint64
+	index        int
 }
 
 // itemPQ isn't thread safe, so it is the responsibility of the containing

@@ -1,4 +1,4 @@
-FROM golang:rc-buster
+FROM us.gcr.io/bluecore-ops/dockerfiles/golang:lint-1.18
 
 all-bench:
     BUILD +fmt-bench
