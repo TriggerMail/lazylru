@@ -1,4 +1,4 @@
-FROM us.gcr.io/bluecore-ops/dockerfiles/golang:lint-1.18
+FROM golang:1.18
 
 all-bench:
     BUILD +fmt-bench
@@ -140,14 +140,17 @@ vendor:
 
 lint-bench:
     FROM +vendor-bench
+    COPY +golangci-lint/go/bin/golangci-lint /go/bin/golangci-lint
     RUN golangci-lint run
 
 lint-interface:
     FROM +vendor-interface
+    COPY +golangci-lint/go/bin/golangci-lint /go/bin/golangci-lint
     RUN golangci-lint run
 
 lint-generic:
     FROM +vendor-generic
+    COPY +golangci-lint/go/bin/golangci-lint /go/bin/golangci-lint
     RUN golangci-lint run
 
 lint:
@@ -252,6 +255,12 @@ goveralls:
     RUN echo Installing goveralls
     RUN go install github.com/mattn/goveralls@latest
     SAVE ARTIFACT /go/bin/goveralls /go/bin/goveralls
+
+golangci-lint:
+    RUN echo Installing golangci-lint...
+    # see https://golangci-lint.run/usage/install/#other-ci
+    RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /go/bin v1.45.0
+    SAVE ARTIFACT /go/bin/golangci-lint /go/bin/golangci-lint
 
 junit-report:
     RUN go install github.com/jstemmer/go-junit-report@latest
