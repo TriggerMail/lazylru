@@ -65,7 +65,6 @@ go-mod-bench:
     RUN --ssh go mod download
 
 go-mod-interface:
-    FROM golang:1.17
     WORKDIR /app
     RUN git config --global url."git@github.com:".insteadOf "https://github.com/"
     RUN mkdir -p -m 0600 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
@@ -91,7 +90,6 @@ fmt-bench:
     RUN bash -c 'if [[ -s /tmp/gofmt.out ]]; then exit 1; fi'
 
 fmt-interface:
-    FROM golang:1.17
     COPY --dir . /app
     RUN rm -rf generic
     RUN rm -rf bench
@@ -142,21 +140,15 @@ vendor:
 
 lint-bench:
     FROM +vendor-bench
-    COPY +revive/go/bin/revive /go/bin/revive
-    RUN echo Running revive...
-    RUN revive -exclude vendor/... -config revive.toml ./...
+    RUN golangci-lint run
 
 lint-interface:
     FROM +vendor-interface
-    COPY +revive/go/bin/revive /go/bin/revive
-    RUN echo Running revive...
-    RUN revive -exclude vendor/... -config revive.toml ./...
+    RUN golangci-lint run
 
 lint-generic:
     FROM +vendor-generic
-    COPY +revive/go/bin/revive /go/bin/revive
-    RUN echo Running revive...
-    RUN revive -exclude vendor/... -config revive.toml ./...
+    RUN golangci-lint run
 
 lint:
     BUILD +lint-bench
@@ -260,11 +252,6 @@ goveralls:
     RUN echo Installing goveralls
     RUN go install github.com/mattn/goveralls@latest
     SAVE ARTIFACT /go/bin/goveralls /go/bin/goveralls
-
-revive:
-    RUN echo Installing revive...
-    RUN 2>/dev/null go install github.com/mgechev/revive@latest
-    SAVE ARTIFACT /go/bin/revive /go/bin/revive
 
 junit-report:
     RUN go install github.com/jstemmer/go-junit-report@latest

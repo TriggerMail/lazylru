@@ -48,8 +48,8 @@ func (bc benchconfig) Interface(b *testing.B) {
 	runtime.GC()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ix := rand.Intn(bc.keyCount)
-		if rand.Float64() < bc.readRate {
+		ix := rand.Intn(bc.keyCount)      //nolint:gosec
+		if rand.Float64() < bc.readRate { //nolint:gosec
 			lru.Get(keys[ix])
 		} else {
 			lru.Set(keys[ix], ix)
@@ -67,8 +67,8 @@ func (bc benchconfig) Generic(b *testing.B) {
 	runtime.GC()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ix := rand.Intn(bc.keyCount)
-		if rand.Float64() < bc.readRate {
+		ix := rand.Intn(bc.keyCount)      //nolint:gosec
+		if rand.Float64() < bc.readRate { //nolint:gosec
 			lru.Get(keys[ix])
 		} else {
 			lru.Set(keys[ix], ix)
@@ -86,8 +86,8 @@ func (bc benchconfig) GenInterface(b *testing.B) {
 	runtime.GC()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ix := rand.Intn(bc.keyCount)
-		if rand.Float64() < bc.readRate {
+		ix := rand.Intn(bc.keyCount)      //nolint:gosec
+		if rand.Float64() < bc.readRate { //nolint:gosec
 			lru.Get(keys[ix])
 		} else {
 			lru.Set(keys[ix], ix)

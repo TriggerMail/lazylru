@@ -14,9 +14,9 @@ type mapCacheElement[V any] struct {
 // "strategy" is random. All operations take an exclusive lock. It is meant to
 // be the control in our experiment.
 type MapCache[K comparable, V any] struct {
-	mut     sync.Mutex
 	data    map[K]mapCacheElement[V]
 	ttl     time.Duration
+	mut     sync.Mutex
 	maxSize int
 }
 

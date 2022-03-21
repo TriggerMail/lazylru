@@ -152,7 +152,7 @@ func (lru *LazyLRU[K, V]) reap(start int, deathList []*item[K, V]) {
 			break
 		}
 		if start < 0 {
-			start = rand.Intn(len(lru.items))
+			start = rand.Intn(len(lru.items)) //nolint:gosec
 		}
 		end := start + 100 // why 100? no idea
 		if end > len(lru.items) {

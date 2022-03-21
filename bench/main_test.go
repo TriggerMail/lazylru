@@ -13,16 +13,16 @@ import (
 
 func TestWrapperFunctions(t *testing.T) {
 	for _, test := range []struct {
-		name  string
 		cache bench.Cache
+		name  string
 	}{
-		{"mapcache", bench.NewMapCache[string, string](10, time.Hour)},
-		{"lazylru", (*bench.LazyLRUTypesafe[string])(lazylru.New(10, time.Hour))},
-		{"lazylruT", lazylruT.NewT[string, string](10, time.Hour)},
-		{"hashicorp.lru", bench.NewHashicorpWrapper[string, string](10)},
-		{"hashicorp.exp", bench.NewHashicorpWrapperExp[string, string](10, time.Hour)},
-		{"hashicorp.arc", bench.NewHashicorpARCWrapper[string, string](10)},
-		{"hashicorp.2Q", bench.NewHashicorp2QWrapper[string, string](10)},
+		{bench.NewMapCache[string, string](10, time.Hour), "mapcache"},
+		{(*bench.LazyLRUTypesafe[string])(lazylru.New(10, time.Hour)), "lazylru"},
+		{lazylruT.NewT[string, string](10, time.Hour), "lazylruT"},
+		{bench.NewHashicorpWrapper[string, string](10), "hashicorp.lru"},
+		{bench.NewHashicorpWrapperExp[string, string](10, time.Hour), "hashicorp.exp"},
+		{bench.NewHashicorpARCWrapper[string, string](10), "hashicorp.arc"},
+		{bench.NewHashicorp2QWrapper[string, string](10), "hashicorp.2Q"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			_, ok := test.cache.Get("medeco")
