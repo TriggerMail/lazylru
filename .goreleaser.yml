@@ -1,0 +1,6 @@
+project_name: lazylru
+build:
+  skip: true
+release:
+  github:
+  prerelease: auto
