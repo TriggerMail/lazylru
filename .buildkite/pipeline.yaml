@@ -1,28 +1,43 @@
 name: lazylru
 description: lazylru build pipeline
-
 env:
-  HOMEBREW_GITHUB_API_TOKEN: ${HOMEBREW_GITHUB_API_TOKEN}
-  GITHUB_TOKEN: ${GITHUB_TOKEN}
-  GOPRIVATE: github.com/TriggerMail
+  BUILDKITE_PLUGIN_GCR_JSON_KEY: ${BUILDKITE_PLUGIN_GCR_JSON_KEY}
+  EARTHLY_SSH_AUTH_SOCK: "/root/.ssh/ssh-agent.sock"
 
 steps:
-  - label: ":golang: test"
-    artifact_paths: test-results/go-test-report.xml
-    key: "test"
+  - label: "interface-based"
+    key: "interface"
     plugins:
-      - fanduel/gcr#v0.1.2:
+      - ssh://git@github.com/TriggerMail/coveralls-buildkite-plugin#v1.0.4:
           login: true
-      - docker#v3.8.0:
-          image: us.gcr.io/bluecore-ops/dockerfiles/golang:dev-1.17
-          entrypoint: ""
-          workdir: /app
-          entrypoint: ""
-          command:
-          - scripts/ci/test.sh
-          propagate-environment: true
-          volumes:
-            - "/root/.ssh/:/root/.ssh/"
+    agents:
+      queue: vmserver
+    env:
+      COVERALLS_TOKEN: ${COVERALLS_TOKEN}
+    command: "earthly --secret COVERALLS_TOKEN +ci-interface --BUILD_NUMBER=$BUILDKITE_BUILD_NUMBER"
+    artifact_paths: test-results/interface/*.xml
+  - label: "bench"
+    key: "bench"
+    plugins:
+      - ssh://git@github.com/TriggerMail/coveralls-buildkite-plugin#v1.0.4:
+          login: true
+    agents:
+      queue: vmserver
+    env:
+      COVERALLS_TOKEN: ${COVERALLS_TOKEN}
+    command: "earthly --secret COVERALLS_TOKEN +ci-bench --BUILD_NUMBER=$BUILDKITE_BUILD_NUMBER"
+    artifact_paths: test-results/bench/*.xml
+  - label: "generic"
+    key: "generic"
+    plugins:
+      - ssh://git@github.com/TriggerMail/coveralls-buildkite-plugin#v1.0.4:
+          login: true
+    agents:
+      queue: vmserver
+    env:
+      COVERALLS_TOKEN: ${COVERALLS_TOKEN}
+    command: "earthly --secret COVERALLS_TOKEN +ci-generic --BUILD_NUMBER=$BUILDKITE_BUILD_NUMBER"
+    artifact_paths: test-results/generic/*.xml
   - label: ":golang: release"
     key: "release"
     agents:
@@ -33,9 +48,21 @@ steps:
           login: true
     if: build.tag =~ /v[0-9]+(\.[0-9]+)*(-.*)*/
     depends_on:
-      - "test"
+      - "generic"
+      - "interface"
   - wait: ~
     continue_on_failure: true
-  - plugins:
+  - label: "collect test results"
+    key: "collect"
+    commands:
+      - "buildkite-agent artifact download test-results/interface/*.xml . --step interface"
+      - "buildkite-agent artifact download test-results/bench/*.xml . --step bench"
+      - "buildkite-agent artifact download test-results/generic/*.xml . --step generic"
+      - "find ./test-results -name 'go-test-*-report.xml' -exec mv {} test-results/ \\;"
+    artifact_paths: test-results/*.xml
+  - label: "report test results"
+    depends_on: "collect"
+    key: "test_results"
+    plugins:
       - junit-annotate#v1.9.0:
-          artifacts: test-results/go-test-report.xml
+          artifacts: test-results/go-test-*.xml

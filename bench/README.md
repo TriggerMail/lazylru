@@ -1,6 +1,6 @@
 # LazyLRU Benchmarking
 
-Because this implementation is designed for groups of keys that come in waves, a simple [testing benchmark ](https://golang.org/pkg/testing/#hdr-Benchmarks) that reads and writes random keys would not be an accurate representation of this library. For those kinds of general loads, [hashicorp/golang-lru](https://github.com/hashicorp/golang-lru) is just as good as LazyLRU when the cache is >25% full. So these benchmarks try to fill that gap.
+Because this implementation is designed for groups of keys that come in waves, a simple [testing benchmark](https://golang.org/pkg/testing/#hdr-Benchmarks) that reads and writes random keys would not be an accurate representation of this library. For those kinds of general loads, [hashicorp/golang-lru](https://github.com/hashicorp/golang-lru) is just as good as LazyLRU when the cache is >25% full. So these benchmarks try to fill that gap.
 
 Benchmarking independently is interesting, but not as instructive. The candidates for all the tests were:
 
@@ -8,11 +8,11 @@ Benchmarking independently is interesting, but not as instructive. The candidate
 * **mapcache.{hour|50ms}**: A map of `key => {value, expiration}`. If the map is full, items are dropped at random. The time indicates the expiration -- _50ms_ for expiring frequently relative to read/write operations, _hour_ for exprining infrequently relative to read/write operations.
 * **lazylru.{hour|50ms}**: The thing in this repo. The one we're here to test.
 * **hashicorp.lru**: This is the default implementation in the [hashicorp/golang-lru](https://pkg.go.dev/github.com/hashicorp/golang-lru?utm_source=godoc) package. This is the implementation based on [groupcache](https://github.com/golang/groupcache/blob/master/lru/lru.go). _This implementation does not support expiration._
-* **hashicorp.exp_{hour|50ms}**: This is the hashicorp.lru, but instead of storing raw values, we store `key => {value, expiration} ` like we did in the mapcache above. Expiry is checked on read and stale values are discarded.
+* **hashicorp.exp_{hour|50ms}**: This is the hashicorp.lru, but instead of storing raw values, we store `key => {value, expiration}` like we did in the mapcache above. Expiry is checked on read and stale values are discarded.
 * **hashicorp.arc**: hashicorp's implementation of the [Adaptive Relay Cache](https://www.usenix.org/legacy/event/fast03/tech/full_papers/megiddo/megiddo.pdf). _This implementation does not support expiration._
-* **hashicorp.2Q**: hashicorp's implementation of the [multi-queue replacement algorithm](https://static.usenix.org/event/usenix01/full_papers/zhou/zhou.pdf). 
+* **hashicorp.2Q**: hashicorp's implementation of the [multi-queue replacement algorithm](https://static.usenix.org/event/usenix01/full_papers/zhou/zhou.pdf).
 
-These tests define sets of keys, then rotate through those sets. This is meant to simulate the waves of requests for a set of keys that would come as marketing sends run through a day. Tests have the following parameters: 
+These tests define sets of keys, then rotate through those sets. This is meant to simulate the waves of requests for a set of keys that would come as marketing sends run through a day. Tests have the following parameters:
 
 * **algorithm**: What we are testing
 * **ranges**: How many ranges of keys are in the test

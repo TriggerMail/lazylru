@@ -10,9 +10,12 @@ import (
 	"time"
 
 	"github.com/TriggerMail/lazylru"
+	lazylruT "github.com/TriggerMail/lazylru/generic"
 	"go.uber.org/zap"
 )
 
+// SpinsPerMicro is a rough, empirical measure of the number of cycles the
+// spinWait function must run per microsecond
 var SpinsPerMicro = func() uint64 {
 	testSpins := uint64(1000000)
 	testIterations := 1001
@@ -37,19 +40,21 @@ func spinWait(n uint64) {
 	}
 }
 
+// Cache is the interface that all implementations under test must implement
 type Cache interface {
-	Get(key string) (interface{}, bool)
-	Set(key string, value interface{})
+	Get(key string) (string, bool)
+	Set(key string, value string)
 	Close()
 }
 
+// TestParams holds the parameters of a test
 type TestParams struct {
-	Duration     time.Duration
+	Cache        Cache
+	Name         string
 	MaxCycles    int
 	Threads      int
 	Size         int
-	Name         string
-	Cache        Cache
+	Duration     time.Duration
 	WorkTime     time.Duration
 	SleepTime    time.Duration
 	TestDataSpec TestDataSpec
@@ -65,19 +70,21 @@ func main() {
 	testDuration := 5 * time.Second
 
 	caches := []struct {
-		name    string
 		factory func(int) Cache
+		name    string
 	}{
-		{"null", func(size int) Cache { return NullCache }},
-		{"mapcache.hour", func(size int) Cache { return NewMapCache(size, time.Hour) }},
-		{"mapcache.50ms", func(size int) Cache { return NewMapCache(size, time.Millisecond*50) }},
-		{"lazylru.hour", func(size int) Cache { return lazylru.New(size, time.Hour) }},
-		{"lazylru.50ms", func(size int) Cache { return lazylru.New(size, time.Millisecond*50) }},
-		{"hashicorp.lru", func(size int) Cache { return NewHashicorpWrapper(size) }},
-		{"hashicorp.exp_hour", func(size int) Cache { return NewHashicorpWrapperExp(size, time.Hour) }},
-		{"hashicorp.exp_50ms", func(size int) Cache { return NewHashicorpWrapperExp(size, time.Millisecond*50) }},
-		{"hashicorp.arc", func(size int) Cache { return NewHashicorpARCWrapper(size) }},
-		{"hashicorp.2Q", func(size int) Cache { return NewHashicorp2QWrapper(size) }},
+		{func(size int) Cache { return NullCache }, "null"},
+		{func(size int) Cache { return NewMapCache[string, string](size, time.Hour) }, "mapcache.hour"},
+		{func(size int) Cache { return NewMapCache[string, string](size, time.Millisecond*50) }, "mapcache.50ms"},
+		{func(size int) Cache { return (*LazyLRUTypesafe[string])(lazylru.New(size, time.Hour)) }, "lazylru.hour"},
+		{func(size int) Cache { return (*LazyLRUTypesafe[string])(lazylru.New(size, time.Millisecond*50)) }, "lazylru.50ms"},
+		{func(size int) Cache { return lazylruT.NewT[string, string](size, time.Hour) }, "lazylruT.hour"},
+		{func(size int) Cache { return lazylruT.NewT[string, string](size, time.Millisecond*50) }, "lazylruT.50ms"},
+		{func(size int) Cache { return NewHashicorpWrapper[string, string](size) }, "hashicorp.lru"},
+		{func(size int) Cache { return NewHashicorpWrapperExp[string, string](size, time.Hour) }, "hashicorp.exp_hour"},
+		{func(size int) Cache { return NewHashicorpWrapperExp[string, string](size, time.Millisecond*50) }, "hashicorp.exp_50ms"},
+		{func(size int) Cache { return NewHashicorpARCWrapper[string, string](size) }, "hashicorp.arc"},
+		{func(size int) Cache { return NewHashicorp2QWrapper[string, string](size) }, "hashicorp.2Q"},
 	}
 
 	printHeaders()
@@ -170,7 +177,7 @@ func testLru(testParams TestParams, testData TestData) {
 				time.Sleep(testParams.SleepTime)
 			}
 			atomic.AddInt64(&globalHits, hits)
-			atomic.AddInt64(&globalCycles, int64(cycles))
+			atomic.AddInt64(&globalCycles, cycles)
 			log.Debug("Stopping thread", zap.Int("thread", i))
 		}(i)
 	}
@@ -241,6 +248,7 @@ func printResult(cycles int64, hits int64, duration time.Duration, testParams Te
 	fmt.Println()
 }
 
+// RoundDigits rounds a floating point value to a given number of digits
 func RoundDigits(val float64, digits int) float64 {
 	scale := math.Pow10(digits)
 	return math.Round(val*scale) / scale

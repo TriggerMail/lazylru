@@ -1,0 +1,63 @@
+FROM golang:rc-buster
+
+WORKDIR /app
+
+all:
+    BUILD +fmt
+    BUILD +lint
+    BUILD +vet
+    BUILD +test
+
+ci:
+    BUILD +fmt
+    BUILD +lint
+    BUILD +vet
+    COPY --dir +test/files ./test-results
+    SAVE ARTIFACT ./test-results AS LOCAL test-results
+
+go-mod:
+    RUN git config --global url."git@github.com:".insteadOf "https://github.com/"
+    RUN mkdir -p -m 0600 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+    COPY go.mod go.sum .
+    RUN --ssh go mod download
+
+fmt:
+    COPY . .
+    RUN find . -type d -path "./vendor" -prune -o -name "*.go" -exec gofmt -d -e {} \; | tee /tmp/gofmt.out
+    RUN bash -c 'if [[ -s /tmp/gofmt.out ]]; then exit 1; fi'
+
+vendor:
+    FROM +go-mod
+    COPY . .
+    RUN --ssh go mod vendor
+    SAVE ARTIFACT . files
+
+lint:
+    FROM +vendor
+    COPY +revive/go/bin/revive /go/bin/revive
+    RUN echo Running revive...
+    RUN revive -exclude vendor/... -config revive.toml ./...
+
+vet:
+    FROM +vendor
+    RUN go vet ./...
+
+test:
+    FROM +vendor
+    COPY +junit-report/go/bin/go-junit-report /go/bin/go-junit-report
+    RUN mkdir -p test-results
+    # To both see the output in the console AND convert into junit-style results
+    # to send to the plug-in, we need to run the tests, writing to a file, then
+    # send that file to go-junit-report
+    RUN 2>&1 go test -v ./... -cover | tee test-results/go-test-generic.out
+    RUN cat test-results/go-test-generic.out | $GOPATH/bin/go-junit-report > test-results/go-test-generic-report.xml
+    SAVE ARTIFACT test-results files
+
+revive:
+    RUN echo Installing revive...
+    RUN 2>/dev/null go install github.com/mgechev/revive@latest
+    SAVE ARTIFACT /go/bin/revive /go/bin/revive
+
+junit-report:
+    RUN go install github.com/jstemmer/go-junit-report@latest
+    SAVE ARTIFACT /go/bin/go-junit-report /go/bin/go-junit-report
