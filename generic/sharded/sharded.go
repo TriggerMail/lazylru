@@ -49,7 +49,7 @@ func NewT[K comparable, V any](maxItemsPerShard int, ttl time.Duration, numShard
 
 // ShardIx determines the target shard for the provided key
 func (slru *LazyLRU[K, V]) ShardIx(key K) int {
-	return int(slru.sharder(key)&0x7FFFFFFFFFFFFFFF) % len(slru.shards)
+	return int(slru.sharder(key) % uint64(len(slru.shards)))
 }
 
 // IsRunning indicates whether the background reaper is active on at least one
@@ -93,13 +93,12 @@ func (slru *LazyLRU[K, V]) MGet(keys ...K) map[K]V {
 	for {
 		shardIx, skeys := shardMapper.TakeGroup()
 		if shardIx < 0 {
-			break
+			return retval
 		}
 		for k, v := range slru.shards[shardIx].MGet(skeys...) {
 			retval[k] = v
 		}
 	}
-	return retval
 }
 
 // Set writes to the cache
@@ -141,13 +140,12 @@ func (slru *LazyLRU[K, V]) MSetTTL(keys []K, values []V, ttl time.Duration) erro
 	for {
 		shardIx, skeys, svals := shardMapper.TakeGroup()
 		if shardIx < 0 {
-			break
+			return nil
 		}
 		if err := slru.shards[shardIx].MSetTTL(skeys, svals, ttl); err != nil {
 			return err
 		}
 	}
-	return nil
 }
 
 // Len returns the number of items in the cache
