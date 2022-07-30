@@ -375,6 +375,27 @@ func (lru *LazyLRU) MSetTTL(keys []string, values []interface{}, ttl time.Durati
 	return nil
 }
 
+// Delete elimitates a key from the cache. Removing a key that is not in the index is safe.
+func (lru *LazyLRU) Delete(key string) {
+	// if the key isn't here, don't bother taking the exclusive lock
+	lru.lock.RLock()
+	_, ok := lru.index[key]
+	lru.lock.RUnlock()
+	if !ok {
+		return
+	}
+	lru.lock.Lock()
+	pqi, ok := lru.index[key]
+	if !ok {
+		lru.lock.Unlock()
+		return
+	}
+	delete(lru.index, pqi.key) // remove from search index
+	lru.items.update(pqi, 0)   // move this item to the top of the heap
+	heap.Pop(&lru.items)       // pop item from the top of the heap
+	lru.lock.Unlock()
+}
+
 // Len returns the number of items in the cache
 func (lru *LazyLRU) Len() int {
 	lru.lock.RLock()

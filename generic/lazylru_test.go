@@ -433,3 +433,16 @@ func TestNegativeSize(t *testing.T) {
 	_, ok := lru.Get("abloy")
 	require.False(t, ok)
 }
+
+func TestDelete(t *testing.T) {
+	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
+		lru.Set("abloy", "medeco")
+		_, ok := lru.Get("abloy")
+		require.True(t, ok)
+		lru.Delete("abloy")
+		_, ok = lru.Get("abloy")
+		require.False(t, ok)
+	},
+		ExpectedStats{}.WithKeysWritten(1).WithKeysReadOK(1).WithKeysReadNotFound(1),
+	)
+}

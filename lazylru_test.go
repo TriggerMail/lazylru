@@ -86,6 +86,7 @@ func TestGetKnownShuffleMitigationGet(t *testing.T) {
 			return v, ok
 		})
 }
+
 func TestGetKnownShuffleMitigationMGet(t *testing.T) {
 	testGetKnownShuffleMitigationHelper(t,
 		func(lru *lazylru.LazyLRU, key string) (interface{}, bool) {
@@ -341,6 +342,7 @@ func TestPushBeyondCapacitySave28(t *testing.T) {
 			WithKeysReadNotFound(1),
 	)
 }
+
 func TestPushBeyondCapacitySave28WithMGet(t *testing.T) {
 	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
 		keys := make([]string, 100)
@@ -429,4 +431,17 @@ func TestNegativeSize(t *testing.T) {
 	lru.Set("abloy", "medeco")
 	_, ok := lru.Get("abloy")
 	require.False(t, ok)
+}
+
+func TestDelete(t *testing.T) {
+	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU) {
+		lru.Set("abloy", "medeco")
+		_, ok := lru.Get("abloy")
+		require.True(t, ok)
+		lru.Delete("abloy")
+		_, ok = lru.Get("abloy")
+		require.False(t, ok)
+	},
+		ExpectedStats{}.WithKeysWritten(1).WithKeysReadOK(1).WithKeysReadNotFound(1),
+	)
 }
