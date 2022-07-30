@@ -409,6 +409,7 @@ func (lru *LazyLRU[K, V]) Delete(key K) {
 	lru.lock.Lock()
 	pqi, ok := lru.index[key]
 	if !ok {
+		lru.lock.Unlock()
 		return
 	}
 	delete(lru.index, pqi.key)        // remove from search index
