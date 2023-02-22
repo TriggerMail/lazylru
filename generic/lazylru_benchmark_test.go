@@ -20,6 +20,13 @@ type value struct {
 	b byte
 }
 
+var _ = value{
+	x: nil,
+	s: "xyzzy",
+	v: 123,
+	b: 123,
+}
+
 var keys = func() []string {
 	k := make([]string, keycnt)
 

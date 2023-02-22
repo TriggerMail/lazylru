@@ -5,7 +5,7 @@ type nullCache struct{}
 // NullCache is a cache that holds nothing and returns nothing
 var NullCache = nullCache{}
 
-// Get always returns `nil, false``
+// Get always returns `nil, false“
 func (nc nullCache) Get(key string) (string, bool) {
 	return "", false
 }
