@@ -77,7 +77,7 @@ func (bc benchconfig) Generic(b *testing.B) {
 }
 
 func (bc benchconfig) GenInterface(b *testing.B) {
-	lru := lazylruT.New(bc.capacity, time.Minute)
+	lru := lazylruT.New(bc.capacity, time.Minute) //nolint:staticcheck
 	defer lru.Close()
 	for i := 0; i < bc.keyCount; i++ {
 		lru.Set(keys[i], i)

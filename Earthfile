@@ -1,4 +1,6 @@
-FROM golang:1.18
+VERSION 0.6
+
+FROM golang:1.20
 
 all-bench:
     BUILD +fmt-bench
@@ -259,7 +261,7 @@ goveralls:
 golangci-lint:
     RUN echo Installing golangci-lint...
     # see https://golangci-lint.run/usage/install/#other-ci
-    RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /go/bin v1.45.0
+    RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /go/bin v1.51.2
     SAVE ARTIFACT /go/bin/golangci-lint /go/bin/golangci-lint
 
 junit-report:
