@@ -25,6 +25,10 @@ linters-settings:
       - fieldalignment
     fieldalignment:
       fix: true
+  revive:
+    rules:
+      - name: unused-parameter
+        disabled: true
 
 issues:
   exclude:
