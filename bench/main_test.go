@@ -7,7 +7,6 @@ import (
 
 	"github.com/TriggerMail/lazylru"
 	bench "github.com/TriggerMail/lazylru/bench"
-	lazylruT "github.com/TriggerMail/lazylru/generic"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,8 +16,7 @@ func TestWrapperFunctions(t *testing.T) {
 		name  string
 	}{
 		{bench.NewMapCache[string, string](10, time.Hour), "mapcache"},
-		{(*bench.LazyLRUTypesafe[string])(lazylru.New(10, time.Hour)), "lazylru"},
-		{lazylruT.NewT[string, string](10, time.Hour), "lazylruT"},
+		{lazylru.NewT[string, string](10, time.Hour), "lazylru"},
 		{bench.NewHashicorpWrapper[string, string](10), "hashicorp.lru"},
 		{bench.NewHashicorpWrapperExp[string, string](10, time.Hour), "hashicorp.exp"},
 		{bench.NewHashicorpARCWrapper[string, string](10), "hashicorp.arc"},

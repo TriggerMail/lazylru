@@ -7,10 +7,6 @@ import (
 )
 
 // H is an interface to an underlying hasher
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 type H interface {
 	Write(buf []byte) (int, error)
 	WriteString(buf string) (int, error)
@@ -29,29 +25,17 @@ var (
 )
 
 // StringSharder can be used to shard with string keys
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 var StringSharder = HashingSharder(func(k string, h H) {
 	_, _ = h.WriteString(k)
 })
 
 // BytesSharder can be used to shard with byte slice keys
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 var BytesSharder = HashingSharder(func(k []byte, h H) {
 	_, _ = h.Write(k)
 })
 
 // HashingSharder can be used to shard any type that can be written
 // to a hasher
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func HashingSharder[K any](f func(K, H)) func(K) uint64 {
 	return func(key K) uint64 {
 		h := hpool.Get().(*hasher)

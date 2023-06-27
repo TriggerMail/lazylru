@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/TriggerMail/lazylru"
-	lazylruT "github.com/TriggerMail/lazylru/generic"
 	"go.uber.org/zap"
 )
 
@@ -76,10 +75,8 @@ func main() {
 		{func(size int) Cache { return NullCache }, "null"},
 		{func(size int) Cache { return NewMapCache[string, string](size, time.Hour) }, "mapcache.hour"},
 		{func(size int) Cache { return NewMapCache[string, string](size, time.Millisecond*50) }, "mapcache.50ms"},
-		{func(size int) Cache { return (*LazyLRUTypesafe[string])(lazylru.New(size, time.Hour)) }, "lazylru.hour"},
-		{func(size int) Cache { return (*LazyLRUTypesafe[string])(lazylru.New(size, time.Millisecond*50)) }, "lazylru.50ms"},
-		{func(size int) Cache { return lazylruT.NewT[string, string](size, time.Hour) }, "lazylruT.hour"},
-		{func(size int) Cache { return lazylruT.NewT[string, string](size, time.Millisecond*50) }, "lazylruT.50ms"},
+		{func(size int) Cache { return lazylru.NewT[string, string](size, time.Hour) }, "lazylru.hour"},
+		{func(size int) Cache { return lazylru.NewT[string, string](size, time.Millisecond*50) }, "lazylru.50ms"},
 		{func(size int) Cache { return NewHashicorpWrapper[string, string](size) }, "hashicorp.lru"},
 		{func(size int) Cache { return NewHashicorpWrapperExp[string, string](size, time.Hour) }, "hashicorp.exp_hour"},
 		{func(size int) Cache { return NewHashicorpWrapperExp[string, string](size, time.Millisecond*50) }, "hashicorp.exp_50ms"},
