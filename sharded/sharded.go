@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	lazylru "github.com/TriggerMail/lazylru/generic"
+	lazylru "github.com/TriggerMail/lazylru"
 )
 
 // LazyLRU is a sharded version of the lazylru.LazyLRU cache. The goal of this
@@ -19,10 +19,6 @@ import (
 // This assumption does not hold under every condition -- if the cache is
 // undersized and churning a lot, this implementation will perform worse than an
 // LRU that updates on every read.
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 type LazyLRU[K comparable, V any] struct {
 	sharder func(K) uint64
 	shards  []*lazylru.LazyLRU[K, V]
@@ -33,10 +29,6 @@ type LazyLRU[K comparable, V any] struct {
 // for values
 //
 // Deprecated: To avoid the casting, use the generic NewT interface instead
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func New(maxItemsPerShard int, ttl time.Duration, numShards int) *LazyLRU[string, any] {
 	return NewT[string, any](maxItemsPerShard, ttl, numShards, StringSharder)
 }
@@ -46,10 +38,6 @@ func New(maxItemsPerShard int, ttl time.Duration, numShards int) *LazyLRU[string
 // possible. For string and []byte keys, the pre-canned StringSharder and
 // BytesSharder are appropriate. These are both based on the HashingSharder,
 // which callers can use to create sharder functions for custom types.
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func NewT[K comparable, V any](maxItemsPerShard int, ttl time.Duration, numShards int, sharder func(K) uint64) *LazyLRU[K, V] {
 	shards := make([]*lazylru.LazyLRU[K, V], numShards)
 	for i := 0; i < numShards; i++ {
@@ -60,20 +48,12 @@ func NewT[K comparable, V any](maxItemsPerShard int, ttl time.Duration, numShard
 }
 
 // ShardIx determines the target shard for the provided key
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (slru *LazyLRU[K, V]) ShardIx(key K) int {
 	return int(slru.sharder(key) % uint64(len(slru.shards)))
 }
 
 // IsRunning indicates whether the background reaper is active on at least one
 // of the shards
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (slru *LazyLRU[K, V]) IsRunning() bool {
 	for _, s := range slru.shards {
 		if s.IsRunning() {
@@ -84,10 +64,6 @@ func (slru *LazyLRU[K, V]) IsRunning() bool {
 }
 
 // Reap removes all expired items from the cache
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (slru *LazyLRU[K, V]) Reap() {
 	for _, s := range slru.shards {
 		s.Reap()
@@ -96,19 +72,11 @@ func (slru *LazyLRU[K, V]) Reap() {
 
 // Get retrieves a value from the cache. The returned bool indicates whether the
 // key was found in the cache.
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (slru *LazyLRU[K, V]) Get(key K) (V, bool) {
 	return slru.shards[slru.ShardIx(key)].Get(key)
 }
 
 // MGet retrieves values from the cache. Missing values will not be returned.
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (slru *LazyLRU[K, V]) MGet(keys ...K) map[K]V {
 	retval := map[K]V{}
 	if len(keys) == 0 {
@@ -134,29 +102,17 @@ func (slru *LazyLRU[K, V]) MGet(keys ...K) map[K]V {
 }
 
 // Set writes to the cache
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (slru *LazyLRU[K, V]) Set(key K, value V) {
 	slru.shards[slru.ShardIx(key)].Set(key, value)
 }
 
 // SetTTL writes to the cache, expiring with the given time-to-live value
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (slru *LazyLRU[K, V]) SetTTL(key K, value V, ttl time.Duration) {
 	slru.shards[slru.ShardIx(key)].SetTTL(key, value, ttl)
 }
 
 // MSet writes multiple keys and values to the cache. If the "key" and "value"
 // parameters are of different lengths, this method will return an error.
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (slru *LazyLRU[K, V]) MSet(keys []K, values []V) error {
 	return slru.MSetTTL(keys, values, slru.ttl)
 }
@@ -164,10 +120,6 @@ func (slru *LazyLRU[K, V]) MSet(keys []K, values []V) error {
 // MSetTTL writes multiple keys and values to the cache, expiring with the given
 // time-to-live value. If the "key" and "value" parameters are of different
 // lengths, this method will return an error.
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (slru *LazyLRU[K, V]) MSetTTL(keys []K, values []V, ttl time.Duration) error {
 	// we don't need to store stuff that is already expired
 	if ttl <= 0 {
@@ -197,10 +149,6 @@ func (slru *LazyLRU[K, V]) MSetTTL(keys []K, values []V, ttl time.Duration) erro
 }
 
 // Len returns the number of items in the cache
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (slru *LazyLRU[K, V]) Len() int {
 	retval := 0
 	for _, s := range slru.shards {
@@ -210,10 +158,6 @@ func (slru *LazyLRU[K, V]) Len() int {
 }
 
 // Close stops the reaper process. This is safe to call multiple times.
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (slru *LazyLRU[K, V]) Close() {
 	for _, s := range slru.shards {
 		s.Close()
@@ -223,10 +167,6 @@ func (slru *LazyLRU[K, V]) Close() {
 // Stats gets a copy of the stats held by the cache. Note that this is a copy,
 // so returned objects will not update as the service continues to execute. The
 // returned value is a sum of each statistic across all shards.
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (slru *LazyLRU[K, V]) Stats() lazylru.Stats {
 	stats := slru.shards[0].Stats()
 	for i := 1; i < len(slru.shards); i++ {

@@ -39,7 +39,24 @@ If sharding makes sense for you, it should be pretty easy to make a list of Lazy
 
 ## Usage
 
+The Go [`heap`](https://golang.org/pkg/container/heap/) has been copied and made to support generics. That allows the LRU to also support generics. To access that feature, import the `lazylru/generic` module. To maintain compatibility with pre-generics versions, the `New` factory method still uses `string` keys and `interface{}` values. However, this is just a wrapper over the `NewT[K,V]` factory method.
+
+```go
+// import "github.com/TriggerMail/lazylru"
+
+lru := lazylru.NewT[string, string](10, 5 * time.minute)
+defer lru.Close()
+
+lru.Set("abloy", "medeco")
+
+vstr, ok := lru.Get("abloy")
+```
+
+It is important to note that `LazyLRU` should be closed if the TTL is non-zero. Otherwise, the background reaper thread will be left running. To be fair, under most circumstances I can imagine, the cache lives as long as the host process. So do what you like.
+
 ### Go &lt;= 1.17
+
+As of v0.4.0, LazyLRU takes advantage of Go [generics](https://go.googlesource.com/proposal/+/master/design/go2draft-contracts.md). If you want to use this library in Go 1.17 or lower, please use v0.3.x. [v0.3.3](https://github.com/TriggerMail/lazylru/releases/tag/v0.3.3) is the latest as of the time of this writing.
 
 Like Go's [`heap`](https://golang.org/pkg/container/heap/) itself, Lazy LRU uses the `interface{}` type for its values. That means that casting is required on the way out. I promised that as soon as Go had [generics](https://go.googlesource.com/proposal/+/master/design/go2draft-contracts.md), I'd get right on it. See below!
 
@@ -55,23 +72,4 @@ v, ok := lru.Get("abloy")
 vstr, vok := v.(string)
 ```
 
-### Go &gt;= 1.18
-
-The Go [`heap`](https://golang.org/pkg/container/heap/) has been copied and made to support generics. That allows the LRU to also support generics. To access that feature, import the `lazylru/generic` module. To maintain compatibility, the `New` factory method still uses `string` keys and `interface{}` values. However, this is just a wrapper over the `NewT[K,V]` factory method.
-
-Once Go 1.18 is baked-in and commonly used, the `lazylru/generic` module will be retired and only the `lazylru` module will remain. Because the `New` factory method is the same, the changes here are purely additive and are in the spirit of the [compatibility guarantee](https://go.dev/doc/go1compat). Because LazyLRU is not yet at 1.0, removing the `lazylru/generic` module isn't out-of-bounds and it will be removed within a few months. According to the [2020 Go Developer Survey](https://go.dev/blog/survey2020-results), ~90% of users who are consistent with upgrades upgrade Go versions within 6 months.
-
-As such, the plan is to move the generic code up to the main package by September, 2022 and fully deprecate the `lazylru/generic` package by March, 2023.
-
-```go
-// import "github.com/TriggerMail/lazylru/generic"
-
-lru := lazylru.NewT[string, string](10, 5 * time.minute)
-defer lru.Close()
-
-lru.Set("abloy", "medeco")
-
-vstr, ok := lru.Get("abloy")
-```
-
-It is important to note that `LazyLRU` should be closed if the TTL is non-zero. Otherwise, the background reaper thread will be left running. To be fair, under most circumstances I can imagine, the cache lives as long as the host process. So do what you like.
+### 

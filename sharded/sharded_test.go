@@ -1,23 +1,23 @@
-package lazylru_test
+package sharded_test
 
 import (
 	"strconv"
 	"testing"
 	"time"
 
-	lazylru "github.com/TriggerMail/lazylru"
+	"github.com/TriggerMail/lazylru/sharded"
 	"github.com/stretchr/testify/require"
 )
 
-func doTest[K comparable, V any](t *testing.T, maxItems int, ttl time.Duration, test func(t *testing.T, lru *lazylru.LazyLRU[K, V]), expected ExpectedStats) {
-	lru := lazylru.NewT[K, V](maxItems, ttl)
+func doShardedTest[K comparable, V any](t *testing.T, maxItems int, ttl time.Duration, numShards int, selector func(K) uint64, test func(t *testing.T, lru *sharded.LazyLRU[K, V]), expected ExpectedStats) {
+	lru := sharded.NewT[K, V](maxItems, ttl, numShards, selector)
 	test(t, lru)
 	lru.Close()
 	expected.Test(t, lru.Stats())
 }
 
 func TestMakeNew(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, int]) {
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, int]) {
 		require.NotNil(t, lru)
 	},
 		ExpectedStats{},
@@ -25,7 +25,7 @@ func TestMakeNew(t *testing.T) {
 }
 
 func TestGetUnknown(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, int]) {
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, int]) {
 		v, ok := lru.Get("something new")
 		require.Equal(t, 0, v)
 		require.False(t, ok)
@@ -35,7 +35,7 @@ func TestGetUnknown(t *testing.T) {
 }
 
 func TestGetKnown(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
 		lru.Set("abloy", "medeco")
 		v, ok := lru.Get("abloy")
 		require.True(t, ok)
@@ -45,54 +45,8 @@ func TestGetKnown(t *testing.T) {
 	)
 }
 
-func testGetKnownShuffleMitigationHelper(t *testing.T, getter func(lru *lazylru.LazyLRU[string, int], key string) (int, bool)) {
-	doTest(t, 100, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, int]) {
-		keys := make([]string, 100)
-		values := make([]int, len(keys))
-		for i := 0; i < len(keys); i++ {
-			keys[i] = strconv.FormatInt(int64(i), 10)
-			values[i] = i
-		}
-		require.NoError(t, lru.MSet(keys, values))
-
-		// This should affect 100 reads, but only 1 shuffle
-		for i := 0; i < 100; i++ {
-			v, ok := getter(lru, "0")
-			require.True(t, ok)
-			require.Equal(t, 0, v)
-		}
-
-		// This should affect 100 reads, but only no shuffles
-		for i := 0; i < 100; i++ {
-			v, ok := getter(lru, "99")
-			require.True(t, ok)
-			require.Equal(t, 99, v)
-		}
-	},
-		ExpectedStats{}.WithKeysReadOK(200).WithShuffles(1),
-	)
-}
-
-func TestGetKnownShuffleMitigationGet(t *testing.T) {
-	testGetKnownShuffleMitigationHelper(t,
-		func(lru *lazylru.LazyLRU[string, int], key string) (int, bool) {
-			v, ok := lru.Get(key)
-			return v, ok
-		})
-}
-
-func TestGetKnownShuffleMitigationMGet(t *testing.T) {
-	testGetKnownShuffleMitigationHelper(t,
-		func(lru *lazylru.LazyLRU[string, int], key string) (int, bool) {
-			d := lru.MGet(key)
-			v, ok := d[key]
-			return v, ok
-		},
-	)
-}
-
 func TestMGetUnknown(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
 		found := lru.MGet("a", "b", "c")
 		require.Equal(t, 0, len(found))
 	},
@@ -101,7 +55,7 @@ func TestMGetUnknown(t *testing.T) {
 }
 
 func TestMGetKnown(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
 		err := lru.MSet(
 			[]string{"abloy", "schlage"},
 			[]string{"medeco", "kwikset"},
@@ -118,7 +72,7 @@ func TestMGetKnown(t *testing.T) {
 }
 
 func TestSetNTimes(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
 		require.Equal(t, 0, lru.Len())
 		lru.Set("abloy", "schlage")
 		require.Equal(t, 1, lru.Len())
@@ -132,7 +86,7 @@ func TestSetNTimes(t *testing.T) {
 }
 
 func TestMGetOneKnown(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
 		lru.Set("abloy", "medeco")
 
 		found := lru.MGet("abloy")
@@ -147,7 +101,7 @@ func TestMGetOneKnown(t *testing.T) {
 }
 
 func TestMSetBad(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
 		err := lru.MSet(
 			[]string{"abloy"},
 			[]string{"medeco", "kwikset"},
@@ -159,28 +113,28 @@ func TestMSetBad(t *testing.T) {
 }
 
 func TestMSetTooMany(t *testing.T) {
-	doTest(t, 5, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
+	doShardedTest(t, 2, time.Hour, 2, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
 		err := lru.MSet(
 			[]string{"a", "b", "c", "d", "e", "f", "g"},
 			[]string{"a", "b", "c", "d", "e", "f", "g"},
 		)
 		require.NoError(t, err)
-		require.Equal(t, 5, lru.Len())
+		require.Equal(t, 4, lru.Len())
 	},
-		ExpectedStats{}.WithKeysWritten(7).WithEvictions(2),
+		ExpectedStats{}.WithKeysWritten(7).WithEvictions(3),
 	)
 }
 
 func TestMSetTooManyTwice(t *testing.T) {
-	doTest(t, 5, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
+	doShardedTest(t, 2, time.Hour, 2, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
 		err := lru.MSet(
 			[]string{"a", "b", "c", "d", "e", "f", "g"},
 			[]string{"a", "b", "c", "d", "e", "f", "g"},
 		)
 		require.NoError(t, err)
-		require.Equal(t, 5, lru.Len())
+		require.Equal(t, 4, lru.Len())
 		found := lru.MGet("a", "b", "c", "d", "e", "f", "g")
-		require.Equal(t, 5, len(found))
+		require.Equal(t, 4, len(found))
 
 		// "g" will still be in the set, but "a" will evict something
 		err = lru.MSet(
@@ -189,7 +143,7 @@ func TestMSetTooManyTwice(t *testing.T) {
 		)
 
 		require.NoError(t, err)
-		require.Equal(t, 5, lru.Len())
+		require.Equal(t, 4, lru.Len())
 		_, ok := lru.Get("f")
 		require.True(t, ok)
 		_, ok = lru.Get("g")
@@ -197,14 +151,14 @@ func TestMSetTooManyTwice(t *testing.T) {
 	},
 		ExpectedStats{}.
 			WithKeysWritten(9).
-			WithEvictions(3).
-			WithKeysReadOK(7).
-			WithKeysReadNotFound(2),
+			WithEvictions(4).
+			WithKeysReadOK(6).
+			WithKeysReadNotFound(3),
 	)
 }
 
 func TestMGetExpired(t *testing.T) {
-	doTest(t, 5, time.Millisecond, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
+	doShardedTest(t, 5, time.Millisecond, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
 		lru.Set("abloy", "medeco")
 		time.Sleep(time.Millisecond * 10)
 
@@ -220,7 +174,7 @@ func TestMGetExpired(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-	lru := lazylru.NewT[string, string](10, time.Hour)
+	lru := sharded.NewT[string, string](10, time.Hour, 10, sharded.StringSharder)
 	require.True(t, lru.IsRunning())
 	lru.Close()
 	time.Sleep(time.Millisecond * 10)
@@ -229,14 +183,14 @@ func TestClose(t *testing.T) {
 }
 
 func TestCloseWithReap(t *testing.T) {
-	doTest(t, 10, 10*time.Millisecond, func(t *testing.T, lru *lazylru.LazyLRU[string, int]) {
+	doShardedTest(t, 10, 10*time.Millisecond, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, int]) {
 		require.True(t, lru.IsRunning())
 
 		lru.SetTTL("abloy", 0, time.Hour)
 		err := lru.MSetTTL(
 			[]string{"a", "b", "c", "d", "e"},
 			[]int{1, 2, 3, 4, 5},
-			0,
+			1,
 		)
 		require.NoError(t, err)
 		require.Equal(t, 6, lru.Len())
@@ -254,7 +208,7 @@ func TestCloseWithReap(t *testing.T) {
 }
 
 func TestReap(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
 		lru.Reap()
 
 		lru.SetTTL("abloy", "medeco", time.Millisecond*10)
@@ -280,34 +234,34 @@ func TestReap(t *testing.T) {
 }
 
 func TestPushBeyondCapacity(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
-		keys := make([]string, 100)
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
+		keys := make([]string, 1000)
 		for i := 0; i < len(keys); i++ {
 			keys[i] = strconv.FormatInt(int64(i), 10)
 			lru.Set(keys[i], keys[i])
 		}
 
-		for _, key := range keys[:90] {
-			_, ok := lru.Get(key)
-			require.False(t, ok, "key: %s", key)
+		cnt := 0
+		for i := 0; i < len(keys); i++ {
+			keys[i] = strconv.FormatInt(int64(i), 10)
+			if v, ok := lru.Get(keys[i]); ok {
+				cnt++
+				require.Equal(t, keys[i], v)
+			}
 		}
-		for _, key := range keys[90:] {
-			v, ok := lru.Get(key)
-			require.True(t, ok, "key: %s", key)
-			require.Equal(t, key, v, "key: %s", key)
-		}
+		require.Equal(t, 100, cnt)
 	},
 		ExpectedStats{}.
-			WithKeysWritten(100).
-			WithKeysReadOK(10).
-			WithKeysReadNotFound(90).
-			WithEvictions(90),
+			WithKeysWritten(1000).
+			WithKeysReadOK(100).
+			WithKeysReadNotFound(900).
+			WithEvictions(900),
 	)
 }
 
 func TestPushBeyondCapacitySave28(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
-		keys := make([]string, 100)
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
+		keys := make([]string, 1000)
 		for i := 0; i < len(keys); i++ {
 			keys[i] = strconv.FormatInt(int64(i), 10)
 			lru.Set(keys[i], keys[i])
@@ -325,15 +279,15 @@ func TestPushBeyondCapacitySave28(t *testing.T) {
 		require.False(t, ok27, "27")
 	},
 		ExpectedStats{}.
-			WithKeysWritten(100).
-			WithKeysReadOK(100+1-28).
+			WithKeysWritten(1000).
+			WithKeysReadOK(1000+1-28).
 			WithKeysReadNotFound(1),
 	)
 }
 
 func TestPushBeyondCapacitySave28WithMGet(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
-		keys := make([]string, 100)
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
+		keys := make([]string, 1000)
 		for i := 0; i < len(keys); i++ {
 			keys[i] = strconv.FormatInt(int64(i), 10)
 			lru.Set(keys[i], keys[i])
@@ -352,14 +306,14 @@ func TestPushBeyondCapacitySave28WithMGet(t *testing.T) {
 		require.False(t, ok27, "27")
 	},
 		ExpectedStats{}.
-			WithKeysWritten(100).
-			WithKeysReadOK(100+1-28).
+			WithKeysWritten(1000).
+			WithKeysReadOK(1000+1-28).
 			WithKeysReadNotFound(1),
 	)
 }
 
 func TestGetExpired(t *testing.T) {
-	doTest(t, 10, 0, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
+	doShardedTest(t, 10, 0, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
 		lru.Set("a", "a")
 		require.Equal(t, 1, lru.Len())
 		v, ok := lru.Get("a")
@@ -374,7 +328,7 @@ func TestGetExpired(t *testing.T) {
 }
 
 func TestExpireCleanup(t *testing.T) {
-	doTest(t, 10, 1, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
+	doShardedTest(t, 10, 1, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
 		lru.Set("a", "a")
 		require.Equal(t, 1, lru.Len())
 		time.Sleep(time.Millisecond * 100)
@@ -387,7 +341,7 @@ func TestExpireCleanup(t *testing.T) {
 }
 
 func TestMGetSomeExpired(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
 		lru.Set("a", "a")
 		lru.SetTTL("b", "b", 0)
 		require.Equal(t, 2, lru.Len())
@@ -405,44 +359,59 @@ func TestMGetSomeExpired(t *testing.T) {
 	)
 }
 
-func TestNonGenericFactory(t *testing.T) {
-	lru := lazylru.New(10, time.Hour)
-	lru.Close()
-	lru.Set("abloy", "medeco")
-	v, ok := lru.Get("abloy")
-	require.True(t, ok)
-	vstr, ok := v.(string)
-	require.True(t, ok)
-	require.Equal(t, "medeco", vstr)
-	es := ExpectedStats{}.WithKeysWritten(1).WithKeysReadOK(1)
-	es.Test(t, lru.Stats())
-}
-
-func TestZeroSize(t *testing.T) {
-	lru := lazylru.New(0, time.Hour)
-	lru.Close()
-	lru.Set("abloy", "medeco")
-	_, ok := lru.Get("abloy")
-	require.False(t, ok)
-}
-
-func TestNegativeSize(t *testing.T) {
-	lru := lazylru.New(-1, time.Hour)
-	lru.Close()
-	lru.Set("abloy", "medeco")
-	_, ok := lru.Get("abloy")
-	require.False(t, ok)
-}
-
-func TestDelete(t *testing.T) {
-	doTest(t, 10, time.Hour, func(t *testing.T, lru *lazylru.LazyLRU[string, string]) {
-		lru.Set("abloy", "medeco")
-		_, ok := lru.Get("abloy")
-		require.True(t, ok)
-		lru.Delete("abloy")
-		_, ok = lru.Get("abloy")
-		require.False(t, ok)
+func TestMSetOneItem(t *testing.T) {
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
+		err := lru.MSet([]string{"a"}, []string{"a"})
+		require.NoError(t, err)
+		require.Equal(t, 1, lru.Len())
+		vals := lru.MGet("a", "b")
+		require.Equal(t, 1, len(vals))
 	},
-		ExpectedStats{}.WithKeysWritten(1).WithKeysReadOK(1).WithKeysReadNotFound(1),
+		ExpectedStats{}.
+			WithKeysWritten(1).
+			WithKeysReadOK(1).
+			WithKeysReadNotFound(1),
+	)
+}
+
+func TestMGetEmpty(t *testing.T) {
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
+		err := lru.MSet(nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, 0, lru.Len())
+		vals := lru.MGet("a", "b")
+		require.Equal(t, 0, len(vals))
+	},
+		ExpectedStats{}.
+			WithKeysWritten(0).
+			WithKeysReadOK(0).
+			WithKeysReadNotFound(2),
+	)
+}
+
+func TestMSetEmpty(t *testing.T) {
+	doShardedTest(t, 10, time.Hour, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
+		vals := lru.MGet()
+		require.Equal(t, 0, len(vals))
+	},
+		ExpectedStats{}.
+			WithKeysWritten(0).
+			WithKeysReadOK(0).
+			WithKeysReadNotFound(0),
+	)
+}
+
+func TestMSetZeroTTL(t *testing.T) {
+	doShardedTest(t, 10, 0, 10, sharded.StringSharder, func(t *testing.T, lru *sharded.LazyLRU[string, string]) {
+		err := lru.MSet([]string{"a"}, []string{"a"})
+		require.NoError(t, err)
+		require.Equal(t, 0, lru.Len())
+		vals := lru.MGet("a", "b")
+		require.Equal(t, 0, len(vals))
+	},
+		ExpectedStats{}.
+			WithKeysWritten(0).
+			WithKeysReadOK(0).
+			WithKeysReadNotFound(2),
 	)
 }

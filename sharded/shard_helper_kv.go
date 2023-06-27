@@ -26,28 +26,16 @@ func newKVShardHelper[K comparable, V any](keys []K, values []V, fIx func(K) int
 }
 
 // Len gets the length. This is part of sort.Interface
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (s *kvShardHelper[K, V]) Len() int { return len(s.keys) }
 
 // Less compares the target shards of two key/value pairs by index. This is part
 // of sort.Interface
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (s *kvShardHelper[K, V]) Less(i, j int) bool {
 	return s.shardIndices[i] < s.shardIndices[j]
 }
 
 // Swap is used to switch the positions of two key/value pairs by index. This
 // is part of sort.Interface
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (s *kvShardHelper[K, V]) Swap(i, j int) {
 	s.keys[i], s.keys[j] = s.keys[j], s.keys[i]
 	s.values[i], s.values[j] = s.values[j], s.values[i]
@@ -57,10 +45,6 @@ func (s *kvShardHelper[K, V]) Swap(i, j int) {
 // TakeGroup returns the first set of keys and values that have the same target
 // shard, and the index of that target shard. If there are no more groups left,
 // the target shard index will be negative.
-//
-// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
-// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
-// which now includes the generic API.
 func (s *kvShardHelper[K, V]) TakeGroup() (int, []K, []V) {
 	if len(s.keys) == 0 {
 		return -1, nil, nil

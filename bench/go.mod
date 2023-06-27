@@ -8,7 +8,6 @@ replace github.com/TriggerMail/lazylru/generic => ../generic
 
 require (
 	github.com/TriggerMail/lazylru v0.3.3
-	github.com/TriggerMail/lazylru/generic v0.3.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.24.0

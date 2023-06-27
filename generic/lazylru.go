@@ -18,6 +18,10 @@ import (
 // This assumption does not hold under every condition -- if the cache is
 // undersized and churning a lot, this implementation will perform worse than an
 // LRU that updates on every read.
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 type LazyLRU[K comparable, V any] struct {
 	doneCh    chan int
 	index     map[K]*item[K, V]
@@ -39,6 +43,10 @@ type LazyLRU[K comparable, V any] struct {
 // expired items.
 //
 // Deprecated: To avoid the casting, use the generic NewT interface instead
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 func New(maxItems int, ttl time.Duration) *LazyLRU[string, interface{}] {
 	return NewT[string, interface{}](maxItems, ttl)
 }
@@ -47,6 +55,10 @@ func New(maxItems int, ttl time.Duration) *LazyLRU[string, interface{}] {
 // maxItems is zero or fewer, the cache will not hold anything, but does still
 // incur some runtime penalties. If ttl is greater than zero, a background
 // ticker will be engaged to proactively remove expired items.
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 func NewT[K comparable, V any](maxItems int, ttl time.Duration) *LazyLRU[K, V] {
 	if maxItems < 0 {
 		maxItems = 0
@@ -75,6 +87,10 @@ func NewT[K comparable, V any](maxItems int, ttl time.Duration) *LazyLRU[K, V] {
 }
 
 // IsRunning indicates whether the background reaper is active
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 func (lru *LazyLRU[K, V]) IsRunning() bool {
 	lru.lock.RLock()
 	defer lru.lock.RUnlock()
@@ -84,6 +100,10 @@ func (lru *LazyLRU[K, V]) IsRunning() bool {
 // reaper engages a background goroutine to randomly select items from the list
 // on a regular basis and check them for expiry. This does not check the whole
 // list, but starts at a random point, looking for expired items.
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 func (lru *LazyLRU[K, V]) reaper() {
 	if lru.ttl > 0 {
 		watchTime := lru.ttl / 10
@@ -129,6 +149,10 @@ func (lru *LazyLRU[K, V]) reaper() {
 }
 
 // Reap removes all expired items from the cache
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 func (lru *LazyLRU[K, V]) Reap() {
 	lru.reap(0, make([]*item[K, V], 0, 100))
 }
@@ -200,6 +224,10 @@ func (lru *LazyLRU[K, V]) shouldBubble(index int) bool {
 
 // Get retrieves a value from the cache. The returned bool indicates whether the
 // key was found in the cache.
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 func (lru *LazyLRU[K, V]) Get(key K) (V, bool) {
 	lru.lock.RLock()
 	pqi, ok := lru.index[key]
@@ -258,6 +286,10 @@ func (lru *LazyLRU[K, V]) Get(key K) (V, bool) {
 }
 
 // MGet retrieves values from the cache. Missing values will not be returned.
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 func (lru *LazyLRU[K, V]) MGet(keys ...K) map[K]V {
 	retval := make(map[K]V, len(keys))
 	maybeExpired := make([]K, 0, len(keys))
@@ -329,11 +361,19 @@ func (lru *LazyLRU[K, V]) MGet(keys ...K) map[K]V {
 }
 
 // Set writes to the cache
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 func (lru *LazyLRU[K, V]) Set(key K, value V) {
 	lru.SetTTL(key, value, lru.ttl)
 }
 
 // SetTTL writes to the cache, expiring with the given time-to-live value
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 func (lru *LazyLRU[K, V]) SetTTL(key K, value V, ttl time.Duration) {
 	lru.lock.Lock()
 	lru.setInternal(key, value, time.Now().Add(ttl))
@@ -372,6 +412,10 @@ func (lru *LazyLRU[K, V]) setInternal(key K, value V, expiration time.Time) {
 
 // MSet writes multiple keys and values to the cache. If the "key" and "value"
 // parameters are of different lengths, this method will return an error.
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 func (lru *LazyLRU[K, V]) MSet(keys []K, values []V) error {
 	return lru.MSetTTL(keys, values, lru.ttl)
 }
@@ -379,6 +423,10 @@ func (lru *LazyLRU[K, V]) MSet(keys []K, values []V) error {
 // MSetTTL writes multiple keys and values to the cache, expiring with the given
 // time-to-live value. If the "key" and "value" parameters are of different
 // lengths, this method will return an error.
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 func (lru *LazyLRU[K, V]) MSetTTL(keys []K, values []V, ttl time.Duration) error {
 	// we don't need to store stuff that is already expired
 	if ttl < 0 {
@@ -398,6 +446,10 @@ func (lru *LazyLRU[K, V]) MSetTTL(keys []K, values []V, ttl time.Duration) error
 }
 
 // Delete elimitates a key from the cache. Removing a key that is not in the index is safe.
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 func (lru *LazyLRU[K, V]) Delete(key K) {
 	// if the key isn't here, don't bother taking the exclusive lock
 	lru.lock.RLock()
@@ -419,6 +471,10 @@ func (lru *LazyLRU[K, V]) Delete(key K) {
 }
 
 // Len returns the number of items in the cache
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 func (lru *LazyLRU[K, V]) Len() int {
 	lru.lock.RLock()
 	defer lru.lock.RUnlock()
@@ -426,6 +482,10 @@ func (lru *LazyLRU[K, V]) Len() int {
 }
 
 // Close stops the reaper process. This is safe to call multiple times.
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 func (lru *LazyLRU[K, V]) Close() {
 	lru.lock.Lock()
 	if !lru.isClosing {
@@ -437,6 +497,10 @@ func (lru *LazyLRU[K, V]) Close() {
 
 // Stats gets a copy of the stats held by the cache. Note that this is a copy,
 // so returned objects will not update as the service continues to execute.
+//
+// Deprecated: The "github.com/TriggerMail/lazylru/generic" package has been
+// deprecated. Please point all references to "github.com/TriggerMail/lazylru",
+// which now includes the generic API.
 func (lru *LazyLRU[K, V]) Stats() Stats {
 	// note that this returns a copy of stats, not a reference
 	return lru.stats

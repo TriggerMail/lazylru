@@ -34,3 +34,4 @@ issues:
   exclude:
     - EXC0002 # Annoying issue about not having a comment
     - EXC0012 # func should have comment or be unexported
+    - SA1019  # deprecation (this whole package is deprecated)

@@ -1,4 +1,4 @@
-package lazylru_test
+package sharded_test
 
 import (
 	"testing"
