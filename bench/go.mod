@@ -1,6 +1,8 @@
 module github.com/TriggerMail/lazylru/bench
 
-go 1.18
+go 1.22
+
+toolchain go1.22.2
 
 replace github.com/TriggerMail/lazylru => ../
 
@@ -9,7 +11,7 @@ replace github.com/TriggerMail/lazylru/generic => ../generic
 require (
 	github.com/TriggerMail/lazylru v0.3.3
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	go.uber.org/zap v1.24.0
 )
 
