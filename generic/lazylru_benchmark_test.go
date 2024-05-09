@@ -2,7 +2,7 @@ package lazylru_test
 
 import (
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"runtime"
 	"strconv"
 	"testing"
@@ -61,9 +61,8 @@ func (bc benchconfig) InterfaceArray(b *testing.B) {
 	runtime.GC()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// ix := rand.Intn(bc.keyCount)      //nolint:gosec
 		ix := i % bc.keyCount
-		if rand.Float64() < bc.readRate { //nolint:gosec
+		if rand.Float64() < bc.readRate {
 			// if true {
 			if iv, ok := lru.Get(keys[ix]); !ok {
 				continue
@@ -91,9 +90,8 @@ func (bc benchconfig) GenericArray(b *testing.B) {
 	runtime.GC()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// ix := rand.Intn(bc.keyCount)      //nolint:gosec
 		ix := i % bc.keyCount
-		if rand.Float64() < bc.readRate { //nolint:gosec
+		if rand.Float64() < bc.readRate {
 			// if true {
 			if v, ok := lru.Get(keys[ix]); !ok {
 				continue
@@ -115,9 +113,8 @@ func (bc benchconfig) InterfaceStructPtr(b *testing.B) {
 	runtime.GC()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// ix := rand.Intn(bc.keyCount)      //nolint:gosec
 		ix := i % bc.keyCount
-		if rand.Float64() < bc.readRate { //nolint:gosec
+		if rand.Float64() < bc.readRate {
 			// if true {
 			if iv, ok := lru.Get(keys[ix]); !ok {
 				continue
@@ -145,9 +142,8 @@ func (bc benchconfig) GenericStructPtr(b *testing.B) {
 	runtime.GC()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// ix := rand.Intn(bc.keyCount)      //nolint:gosec
 		ix := i % bc.keyCount
-		if rand.Float64() < bc.readRate { //nolint:gosec
+		if rand.Float64() < bc.readRate {
 			// if true {
 			if v, ok := lru.Get(keys[ix]); !ok {
 				continue
@@ -169,9 +165,8 @@ func (bc benchconfig) InterfaceValue(b *testing.B) {
 	runtime.GC()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// ix := rand.Intn(bc.keyCount)      //nolint:gosec
 		ix := i % bc.keyCount
-		if rand.Float64() < bc.readRate { //nolint:gosec
+		if rand.Float64() < bc.readRate {
 			// if true {
 			if iv, ok := lru.Get(keys[ix]); !ok {
 				continue
@@ -199,9 +194,8 @@ func (bc benchconfig) GenericValue(b *testing.B) {
 	runtime.GC()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// ix := rand.Intn(bc.keyCount)      //nolint:gosec
 		ix := i % bc.keyCount
-		if rand.Float64() < bc.readRate { //nolint:gosec
+		if rand.Float64() < bc.readRate {
 			// if true {
 			if v, ok := lru.Get(keys[ix]); !ok {
 				continue

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"math/rand"
+	"math/rand/v2"
 )
 
 const validChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -9,7 +9,7 @@ const validChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567
 func randomString(size int) string {
 	retval := make([]byte, size)
 	for i := 0; i < len(retval); i++ {
-		retval[i] = validChars[rand.Intn(len(validChars))] //nolint:gosec
+		retval[i] = validChars[rand.IntN(len(validChars))]
 	}
 	return string(retval)
 }
@@ -40,7 +40,7 @@ func NewTestData(count int) TestDataSimple {
 
 // RandomKV retrieves a random key/value pair
 func (td TestDataSimple) RandomKV() (string, string) {
-	kv := td[rand.Intn(len(td))] //nolint: gosec
+	kv := td[rand.IntN(len(td))]
 	return kv.Key, kv.Value
 }
 

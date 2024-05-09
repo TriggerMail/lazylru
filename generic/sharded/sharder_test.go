@@ -1,7 +1,7 @@
 package sharded_test
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"sort"
 	"strconv"
 	"testing"

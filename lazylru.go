@@ -2,7 +2,7 @@ package lazylru
 
 import (
 	"errors"
-	"math/rand"
+	"math/rand/v2"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -152,7 +152,7 @@ func (lru *LazyLRU[K, V]) reap(start int, deathList []*item[K, V]) {
 			break
 		}
 		if start < 0 {
-			start = rand.Intn(len(lru.items)) //nolint:gosec
+			start = rand.IntN(len(lru.items))
 		}
 		end := start + 100 // why 100? no idea
 		if end > len(lru.items) {
