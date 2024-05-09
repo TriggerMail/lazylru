@@ -5,7 +5,7 @@
 package heap
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"testing"
 )
 
@@ -202,7 +202,7 @@ func TestFix(t *testing.T) {
 	h.verify(t, 0)
 
 	for i := 100; i > 0; i-- {
-		elem := rand.Intn(h.Len()) //nolint:gosec
+		elem := rand.IntN(h.Len())
 		if i&1 == 0 {
 			(*h)[elem] *= 2
 		} else {

@@ -2,7 +2,7 @@ package sharded_test
 
 import (
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"runtime"
 	"strconv"
 	"sync"
@@ -66,14 +66,12 @@ func (bc benchconfig) Run(b *testing.B) {
 	b.ResetTimer()
 	var wg sync.WaitGroup
 	wg.Add(bc.concurrency)
-	baseTime := time.Now().UnixNano()
 
 	for c := 0; c < bc.concurrency; c++ {
 		go func(c int) {
-			rnd := rand.New(rand.NewSource(baseTime + int64(c))) //nolint:gosec
 			for i := c; i < b.N; i += bc.concurrency {
-				ix := rnd.Intn(bc.keyCount)
-				if rnd.Float64() < bc.readRate {
+				ix := rand.IntN(bc.keyCount)
+				if rand.Float64() < bc.readRate {
 					lru.Get(keys[ix])
 				} else {
 					lru.Set(keys[ix], ix)

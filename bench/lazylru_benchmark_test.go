@@ -2,7 +2,7 @@ package main_test
 
 import (
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"runtime"
 	"strconv"
 	"testing"
@@ -48,8 +48,8 @@ func (bc benchconfig) Generic(b *testing.B) {
 	runtime.GC()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ix := rand.Intn(bc.keyCount)      //nolint:gosec
-		if rand.Float64() < bc.readRate { //nolint:gosec
+		ix := rand.IntN(bc.keyCount)
+		if rand.Float64() < bc.readRate {
 			lru.Get(keys[ix])
 		} else {
 			lru.Set(keys[ix], ix)
@@ -67,8 +67,8 @@ func (bc benchconfig) GenInterface(b *testing.B) {
 	runtime.GC()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ix := rand.Intn(bc.keyCount)      //nolint:gosec
-		if rand.Float64() < bc.readRate { //nolint:gosec
+		ix := rand.IntN(bc.keyCount)
+		if rand.Float64() < bc.readRate {
 			lru.Get(keys[ix])
 		} else {
 			lru.Set(keys[ix], ix)
