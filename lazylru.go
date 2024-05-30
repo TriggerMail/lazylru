@@ -10,6 +10,14 @@ import (
 	heap "github.com/TriggerMail/lazylru/containers/heap"
 )
 
+// EvictCB is a callback function that will be executed when items are removed
+// from the cache via eviction due to max size or because the TTL has been
+// exceeded. These functions will not be called with a lock and will not block
+// future reaping. Be sure any callback registered can complete the number of
+// expected calls (based on your expire/eviction rates) or you may create a
+// backlog of goroutines.
+type EvictCB[K comparable, V any] func(K, V)
+
 // LazyLRU is an LRU cache that only reshuffles values if it is somewhat full.
 // This is a cache implementation that uses a hash table for lookups and a
 // priority queue to approximate LRU. Approximate because the usage is not
@@ -19,16 +27,18 @@ import (
 // undersized and churning a lot, this implementation will perform worse than an
 // LRU that updates on every read.
 type LazyLRU[K comparable, V any] struct {
-	doneCh    chan int
-	index     map[K]*item[K, V]
-	items     itemPQ[K, V]
-	maxItems  int
-	itemIx    uint64
-	ttl       time.Duration
-	stats     Stats
-	lock      sync.RWMutex
-	isRunning bool
-	isClosing bool
+	onEvict    []EvictCB[K, V]
+	doneCh     chan int
+	index      map[K]*item[K, V]
+	items      itemPQ[K, V]
+	maxItems   int
+	itemIx     uint64
+	ttl        time.Duration
+	stats      Stats
+	lock       sync.RWMutex
+	isRunning  bool
+	isClosing  bool
+	numEvictDb int32 // faster to check than locking and checking the length of onEvict
 }
 
 // New creates a LazyLRU[string, interface{} with the given capacity and default
@@ -72,6 +82,45 @@ func NewT[K comparable, V any](maxItems int, ttl time.Duration) *LazyLRU[K, V] {
 	}
 
 	return lru
+}
+
+// OnEvict registers a callback that will be executed when items are removed
+// from the cache via eviction due to max size or because the TTL has been
+// exceeded. These functions will not be called with a lock and will not block
+// future reaping. Be sure any callback registered can complete the number of
+// expected calls (based on your expire/eviction rates) or you may create a
+// backlog of goroutines.
+//
+// If a Set or MSet operation causes an eviction, this function will be called
+// synchronously to that Set or MSet call.
+func (lru *LazyLRU[K, V]) OnEvict(cb EvictCB[K, V]) {
+	lru.lock.Lock()
+	lru.onEvict = append(lru.onEvict, cb)
+	lru.numEvictDb++
+	lru.lock.Unlock()
+}
+
+func (lru *LazyLRU[K, V]) execOnEvict(deathList []*item[K, V]) {
+	if len(deathList) == 0 {
+		return
+	}
+	if atomic.LoadInt32(&(lru.numEvictDb)) == 0 {
+		return
+	}
+
+	var callbacks []EvictCB[K, V]
+	lru.lock.RLock()
+	callbacks = lru.onEvict
+	lru.lock.RUnlock()
+	if len(callbacks) == 0 {
+		return // this should never happen
+	}
+
+	for _, item := range deathList {
+		for _, cb := range callbacks {
+			cb(item.key, item.value)
+		}
+	}
 }
 
 // IsRunning indicates whether the background reaper is active
@@ -140,6 +189,7 @@ func (lru *LazyLRU[K, V]) reap(start int, deathList []*item[K, V]) {
 	}
 
 	cycles := uint32(0)
+	var aggDeathList []*item[K, V]
 	for {
 		cycles++
 		// grab a read lock while we are looking for items to kill
@@ -161,6 +211,7 @@ func (lru *LazyLRU[K, V]) reap(start int, deathList []*item[K, V]) {
 		for i := start; i < end; i++ {
 			if lru.items[i].expiration.Before(timestamp) {
 				deathList = append(deathList, lru.items[i])
+				aggDeathList = append(aggDeathList, lru.items[i])
 			}
 		}
 		lru.lock.RUnlock()
@@ -189,6 +240,9 @@ func (lru *LazyLRU[K, V]) reap(start int, deathList []*item[K, V]) {
 		lru.lock.Unlock()
 	}
 	atomic.AddUint32(&lru.stats.ReaperCycles, cycles)
+	if len(aggDeathList) > 0 && atomic.LoadInt32(&lru.numEvictDb) > 0 {
+		lru.execOnEvict(aggDeathList)
+	}
 }
 
 // shouldBubble determines if a particular item should be updated on read and
@@ -336,16 +390,20 @@ func (lru *LazyLRU[K, V]) Set(key K, value V) {
 // SetTTL writes to the cache, expiring with the given time-to-live value
 func (lru *LazyLRU[K, V]) SetTTL(key K, value V, ttl time.Duration) {
 	lru.lock.Lock()
-	lru.setInternal(key, value, time.Now().Add(ttl))
+	deathList := lru.setInternal(key, value, time.Now().Add(ttl))
 	lru.lock.Unlock()
+	if len(deathList) > 0 && atomic.LoadInt32(&lru.numEvictDb) > 0 {
+		lru.execOnEvict(deathList)
+	}
 }
 
 // setInternal writes elements. This is NOT thread safe and should always be
 // called with a write lock
-func (lru *LazyLRU[K, V]) setInternal(key K, value V, expiration time.Time) {
+func (lru *LazyLRU[K, V]) setInternal(key K, value V, expiration time.Time) []*item[K, V] {
 	if lru.maxItems <= 0 {
-		return
+		return nil
 	}
+	var deathList []*item[K, V]
 	lru.stats.KeysWritten++
 	if pqi, ok := lru.index[key]; ok {
 		pqi.expiration = expiration
@@ -363,11 +421,13 @@ func (lru *LazyLRU[K, V]) setInternal(key K, value V, expiration time.Time) {
 		for lru.items.Len() >= lru.maxItems {
 			deadGuy := heap.Pop[*item[K, V]](&lru.items)
 			delete(lru.index, deadGuy.key)
+			deathList = append(deathList, deadGuy)
 			lru.stats.Evictions++
 		}
 		heap.Push[*item[K, V]](&lru.items, pqi)
 		lru.index[key] = pqi
 	}
+	return deathList
 }
 
 // MSet writes multiple keys and values to the cache. If the "key" and "value"
@@ -388,12 +448,16 @@ func (lru *LazyLRU[K, V]) MSetTTL(keys []K, values []V, ttl time.Duration) error
 		return errors.New("Mismatch between number of keys and number of values")
 	}
 
+	var deathList []*item[K, V]
 	lru.lock.Lock()
 	expiration := time.Now().Add(ttl)
 	for i := 0; i < len(keys); i++ {
-		lru.setInternal(keys[i], values[i], expiration)
+		deathList = append(deathList, lru.setInternal(keys[i], values[i], expiration)...)
 	}
 	lru.lock.Unlock()
+	if len(deathList) > 0 && atomic.LoadInt32(&lru.numEvictDb) > 0 {
+		lru.execOnEvict(deathList)
+	}
 	return nil
 }
 
@@ -412,10 +476,13 @@ func (lru *LazyLRU[K, V]) Delete(key K) {
 		lru.lock.Unlock()
 		return
 	}
-	delete(lru.index, pqi.key)        // remove from search index
-	lru.items.update(pqi, 0)          // move this item to the top of the heap
-	heap.Pop[*item[K, V]](&lru.items) // pop item from the top of the heap
+	delete(lru.index, pqi.key)                   // remove from search index
+	lru.items.update(pqi, 0)                     // move this item to the top of the heap
+	deadguy := heap.Pop[*item[K, V]](&lru.items) // pop item from the top of the heap
 	lru.lock.Unlock()
+	if atomic.LoadInt32(&lru.numEvictDb) > 0 {
+		lru.execOnEvict([]*item[K, V]{deadguy})
+	}
 }
 
 // Len returns the number of items in the cache
