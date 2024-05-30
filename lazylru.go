@@ -38,7 +38,7 @@ type LazyLRU[K comparable, V any] struct {
 	lock       sync.RWMutex
 	isRunning  bool
 	isClosing  bool
-	numEvictDb int32 // faster to check than locking and checking the length of onEvict
+	numEvictCB int32 // faster to check than locking and checking the length of onEvict
 }
 
 // New creates a LazyLRU[string, interface{} with the given capacity and default
@@ -96,7 +96,7 @@ func NewT[K comparable, V any](maxItems int, ttl time.Duration) *LazyLRU[K, V] {
 func (lru *LazyLRU[K, V]) OnEvict(cb EvictCB[K, V]) {
 	lru.lock.Lock()
 	lru.onEvict = append(lru.onEvict, cb)
-	lru.numEvictDb++
+	lru.numEvictCB++
 	lru.lock.Unlock()
 }
 
@@ -104,7 +104,7 @@ func (lru *LazyLRU[K, V]) execOnEvict(deathList []*item[K, V]) {
 	if len(deathList) == 0 {
 		return
 	}
-	if atomic.LoadInt32(&(lru.numEvictDb)) == 0 {
+	if atomic.LoadInt32(&(lru.numEvictCB)) == 0 {
 		return
 	}
 
@@ -240,7 +240,7 @@ func (lru *LazyLRU[K, V]) reap(start int, deathList []*item[K, V]) {
 		lru.lock.Unlock()
 	}
 	atomic.AddUint32(&lru.stats.ReaperCycles, cycles)
-	if len(aggDeathList) > 0 && atomic.LoadInt32(&lru.numEvictDb) > 0 {
+	if len(aggDeathList) > 0 && atomic.LoadInt32(&lru.numEvictCB) > 0 {
 		lru.execOnEvict(aggDeathList)
 	}
 }
@@ -392,7 +392,7 @@ func (lru *LazyLRU[K, V]) SetTTL(key K, value V, ttl time.Duration) {
 	lru.lock.Lock()
 	deathList := lru.setInternal(key, value, time.Now().Add(ttl))
 	lru.lock.Unlock()
-	if len(deathList) > 0 && atomic.LoadInt32(&lru.numEvictDb) > 0 {
+	if len(deathList) > 0 && atomic.LoadInt32(&lru.numEvictCB) > 0 {
 		lru.execOnEvict(deathList)
 	}
 }
@@ -455,7 +455,7 @@ func (lru *LazyLRU[K, V]) MSetTTL(keys []K, values []V, ttl time.Duration) error
 		deathList = append(deathList, lru.setInternal(keys[i], values[i], expiration)...)
 	}
 	lru.lock.Unlock()
-	if len(deathList) > 0 && atomic.LoadInt32(&lru.numEvictDb) > 0 {
+	if len(deathList) > 0 && atomic.LoadInt32(&lru.numEvictCB) > 0 {
 		lru.execOnEvict(deathList)
 	}
 	return nil
@@ -480,7 +480,7 @@ func (lru *LazyLRU[K, V]) Delete(key K) {
 	lru.items.update(pqi, 0)                     // move this item to the top of the heap
 	deadguy := heap.Pop[*item[K, V]](&lru.items) // pop item from the top of the heap
 	lru.lock.Unlock()
-	if atomic.LoadInt32(&lru.numEvictDb) > 0 {
+	if atomic.LoadInt32(&lru.numEvictCB) > 0 {
 		lru.execOnEvict([]*item[K, V]{deadguy})
 	}
 }
