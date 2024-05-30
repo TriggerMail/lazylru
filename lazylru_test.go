@@ -446,3 +446,66 @@ func TestDelete(t *testing.T) {
 		ExpectedStats{}.WithKeysWritten(1).WithKeysReadOK(1).WithKeysReadNotFound(1),
 	)
 }
+
+func TestCallbackOnEvict(t *testing.T) {
+	t.Run("set", func(t *testing.T) {
+		var evicted []int
+		lru := lazylru.NewT[int, int](5, time.Hour)
+		lru.OnEvict(func(k, v int) {
+			require.Equal(t, k<<4, v)
+			evicted = append(evicted, k)
+		})
+		for i := 0; i < 5; i++ {
+			lru.Set(i, i<<4)
+		}
+		require.Equal(t, 0, len(evicted))
+		for i := 5; i < 10; i++ {
+			lru.Set(i, i<<4)
+		}
+		require.Equal(t, 5, len(evicted))
+	})
+	t.Run("mset", func(t *testing.T) {
+		var evicted []int
+		lru := lazylru.NewT[int, int](5, time.Hour)
+		lru.OnEvict(func(k, v int) {
+			require.Equal(t, k<<4, v)
+			evicted = append(evicted, k)
+		})
+		require.NoError(t, lru.MSet([]int{0, 1, 2, 3, 4}, []int{0 << 4, 1 << 4, 2 << 4, 3 << 4, 4 << 4}))
+		require.Equal(t, 0, len(evicted))
+		require.NoError(t, lru.MSet([]int{5, 6, 7, 8, 9}, []int{5 << 4, 6 << 4, 7 << 4, 8 << 4, 9 << 4}))
+		require.Equal(t, 5, len(evicted))
+	})
+}
+
+func TestCallbackOnDelete(t *testing.T) {
+	var evicted []int
+	lru := lazylru.NewT[int, int](5, time.Hour)
+	lru.OnEvict(func(k, v int) {
+		require.Equal(t, k<<4, v)
+		evicted = append(evicted, k)
+	})
+	for i := 0; i < 5; i++ {
+		lru.Set(i, i<<4)
+	}
+	require.Equal(t, 0, len(evicted))
+	lru.Delete(3)
+	require.Equal(t, 1, len(evicted))
+}
+
+func TestCallbackOnExpire(t *testing.T) {
+	var evicted []int
+	lru := lazylru.NewT[int, int](5, time.Hour)
+	lru.OnEvict(func(k, v int) {
+		require.Equal(t, k<<4, v)
+		evicted = append(evicted, k)
+	})
+	for i := 0; i < 5; i++ {
+		lru.SetTTL(i, i<<4, 5*time.Millisecond)
+	}
+	time.Sleep(10 * time.Millisecond)
+	lru.Reap()
+	require.Equal(t, 0, lru.Len(), "items left in lru")
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, 5, len(evicted), "on evict items")
+}
