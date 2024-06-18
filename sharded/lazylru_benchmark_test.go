@@ -70,8 +70,8 @@ func (bc benchconfig) Run(b *testing.B) {
 	for c := 0; c < bc.concurrency; c++ {
 		go func(c int) {
 			for i := c; i < b.N; i += bc.concurrency {
-				ix := rand.IntN(bc.keyCount)
-				if rand.Float64() < bc.readRate {
+				ix := rand.IntN(bc.keyCount)      //nolint:gosec
+				if rand.Float64() < bc.readRate { //nolint:gosec
 					lru.Get(keys[ix])
 				} else {
 					lru.Set(keys[ix], ix)

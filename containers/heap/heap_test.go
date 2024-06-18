@@ -202,7 +202,7 @@ func TestFix(t *testing.T) {
 	h.verify(t, 0)
 
 	for i := 100; i > 0; i-- {
-		elem := rand.IntN(h.Len())
+		elem := rand.IntN(h.Len()) //nolint:gosec
 		if i&1 == 0 {
 			(*h)[elem] *= 2
 		} else {

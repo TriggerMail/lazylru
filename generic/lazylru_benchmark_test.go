@@ -62,7 +62,7 @@ func (bc benchconfig) InterfaceArray(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ix := i % bc.keyCount
-		if rand.Float64() < bc.readRate {
+		if rand.Float64() < bc.readRate { //nolint:gosec
 			// if true {
 			if iv, ok := lru.Get(keys[ix]); !ok {
 				continue
@@ -91,7 +91,7 @@ func (bc benchconfig) GenericArray(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ix := i % bc.keyCount
-		if rand.Float64() < bc.readRate {
+		if rand.Float64() < bc.readRate { //nolint:gosec
 			// if true {
 			if v, ok := lru.Get(keys[ix]); !ok {
 				continue
@@ -114,7 +114,7 @@ func (bc benchconfig) InterfaceStructPtr(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ix := i % bc.keyCount
-		if rand.Float64() < bc.readRate {
+		if rand.Float64() < bc.readRate { //nolint:gosec
 			// if true {
 			if iv, ok := lru.Get(keys[ix]); !ok {
 				continue
@@ -143,7 +143,7 @@ func (bc benchconfig) GenericStructPtr(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ix := i % bc.keyCount
-		if rand.Float64() < bc.readRate {
+		if rand.Float64() < bc.readRate { //nolint:gosec
 			// if true {
 			if v, ok := lru.Get(keys[ix]); !ok {
 				continue
@@ -166,7 +166,7 @@ func (bc benchconfig) InterfaceValue(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ix := i % bc.keyCount
-		if rand.Float64() < bc.readRate {
+		if rand.Float64() < bc.readRate { //nolint:gosec
 			// if true {
 			if iv, ok := lru.Get(keys[ix]); !ok {
 				continue
@@ -195,7 +195,7 @@ func (bc benchconfig) GenericValue(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ix := i % bc.keyCount
-		if rand.Float64() < bc.readRate {
+		if rand.Float64() < bc.readRate { //nolint:gosec
 			// if true {
 			if v, ok := lru.Get(keys[ix]); !ok {
 				continue
