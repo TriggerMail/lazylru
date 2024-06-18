@@ -530,5 +530,5 @@ func TestConcurrent(t *testing.T) {
 		return nil
 	})
 
-	group.Wait()
+	_ = group.Wait()
 }
