@@ -8,8 +8,6 @@ builds:
   - skip: true
 
 release:
-  github:
-    name: TriggerMail/lazylru
   prerelease: auto
 
 changelog:
