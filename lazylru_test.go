@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	lazylru "github.com/TriggerMail/lazylru"
 	"github.com/stretchr/testify/require"
 )
@@ -508,4 +510,25 @@ func TestCallbackOnExpire(t *testing.T) {
 	require.Equal(t, 0, lru.Len(), "items left in lru")
 	time.Sleep(100 * time.Millisecond)
 	require.Equal(t, 5, len(evicted), "on evict items")
+}
+
+func TestConcurrent(t *testing.T) {
+	lru := lazylru.NewT[int, int](2000, time.Hour)
+
+	var group errgroup.Group
+	group.Go(func() error {
+		for n := 0; n < 1000; n++ {
+			lru.Set(0, 0)
+		}
+		return nil
+	})
+
+	group.Go(func() error {
+		for n := 0; n < 1000; n++ {
+			lru.Get(0)
+		}
+		return nil
+	})
+
+	_ = group.Wait()
 }
