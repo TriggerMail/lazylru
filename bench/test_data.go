@@ -9,7 +9,7 @@ const validChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567
 func randomString(size int) string {
 	retval := make([]byte, size)
 	for i := 0; i < len(retval); i++ {
-		retval[i] = validChars[rand.IntN(len(validChars))]
+		retval[i] = validChars[rand.IntN(len(validChars))] //nolint:gosec
 	}
 	return string(retval)
 }
@@ -40,7 +40,7 @@ func NewTestData(count int) TestDataSimple {
 
 // RandomKV retrieves a random key/value pair
 func (td TestDataSimple) RandomKV() (string, string) {
-	kv := td[rand.IntN(len(td))]
+	kv := td[rand.IntN(len(td))] //nolint:gosec
 	return kv.Key, kv.Value
 }
 
