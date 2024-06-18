@@ -1,6 +1,16 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+version: 2
+
 project_name: lazylru
-build:
-  skip: true
+
+builds:
+  - skip: true
+
 release:
   github:
+    name: TriggerMail/lazylru
   prerelease: auto
+
+changelog:
+  sort: asc
