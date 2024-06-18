@@ -256,21 +256,28 @@ func (lru *LazyLRU[K, V]) shouldBubble(index int) bool {
 // key was found in the cache.
 func (lru *LazyLRU[K, V]) Get(key K) (V, bool) {
 	lru.lock.RLock()
+	// pqi may be touched between when we release this lock and the writer lock
+	// below, so we need to store the value we read in the stack before checking
+	// the expiration and such. It won't hurt anything because we will take a
+	// write lock and check pqi again, but it's the right thing to do and makes
+	// the race detector happy.
 	pqi, ok := lru.index[key]
-	lru.lock.RUnlock()
 	if !ok {
+		lru.lock.RUnlock()
 		atomic.AddUint32(&lru.stats.KeysReadNotFound, 1)
 		var zero V
 		return zero, false
 	}
+	qi := *pqi
+	lru.lock.RUnlock()
 
 	// there is a dangerous case if the read/lock/read pattern returns an
 	// unexpired key on the second read -- if we are not careful, we may end up
 	// trying to take the lock twice. Because "defer" can't help us here, I'm
 	// being really explicit about whether or not we have the lock already.
-	locked := false
+	var locked bool
 	// if the item is expired, remove it
-	if pqi.expiration.Before(time.Now()) && pqi.index >= 0 {
+	if qi.expiration.Before(time.Now()) && qi.index >= 0 {
 		lru.lock.Lock()
 		locked = true
 
@@ -308,7 +315,7 @@ func (lru *LazyLRU[K, V]) Get(key K) (V, bool) {
 		lru.lock.Unlock()
 	}
 	atomic.AddUint32(&lru.stats.KeysReadOK, 1)
-	return pqi.value, ok
+	return qi.value, ok
 }
 
 // MGet retrieves values from the cache. Missing values will not be returned.
