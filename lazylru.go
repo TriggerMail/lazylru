@@ -300,20 +300,28 @@ func (lru *LazyLRU[K, V]) Get(key K) (V, bool) {
 	// We only want to shuffle this item if it is far enough from the front that
 	// it is at risk of being evicted. This will save us from exclusive locking
 	// 75% of the time.
+	if !locked {
+		lru.lock.RLock()
+		maybeShould := lru.shouldBubble(pqi.index)
+		lru.lock.RUnlock()
+		if !maybeShould {
+			atomic.AddUint32(&lru.stats.KeysReadOK, 1)
+			return qi.value, ok
+		}
+	}
+
+	if !locked {
+		lru.lock.Lock()
+		// locked = true  // ineffectual
+	}
+	// double check because someone else may have shuffled
 	if lru.shouldBubble(pqi.index) {
-		if !locked {
-			lru.lock.Lock()
-			locked = true
-		}
-		// double check because someone else may have shuffled
-		if lru.shouldBubble(pqi.index) {
-			lru.items.update(pqi, atomic.AddUint64(&(lru.itemIx), 1))
-			lru.stats.Shuffles++
-		}
+		lru.items.update(pqi, atomic.AddUint64(&(lru.itemIx), 1))
+		lru.stats.Shuffles++
 	}
-	if locked {
-		lru.lock.Unlock()
-	}
+
+	lru.lock.Unlock() // we will definitely be locked if we got here
+
 	atomic.AddUint32(&lru.stats.KeysReadOK, 1)
 	return qi.value, ok
 }

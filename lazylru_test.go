@@ -532,3 +532,24 @@ func TestConcurrent(t *testing.T) {
 
 	_ = group.Wait()
 }
+
+func TestConcurrentShouldBubble(t *testing.T) {
+	lru := lazylru.NewT[int, int](20, time.Hour)
+
+	var group errgroup.Group
+	group.Go(func() error {
+		for n := 0; n < 1000; n++ {
+			lru.Set(n%20, n)
+		}
+		return nil
+	})
+
+	group.Go(func() error {
+		for n := 0; n < 1000; n++ {
+			lru.Get(n % 20)
+		}
+		return nil
+	})
+
+	_ = group.Wait()
+}
