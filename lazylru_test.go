@@ -1,6 +1,7 @@
 package lazylru_test
 
 import (
+	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -552,4 +553,46 @@ func TestConcurrentShouldBubble(t *testing.T) {
 	})
 
 	_ = group.Wait()
+}
+
+func TestScan(t *testing.T) {
+	lru := lazylru.NewT[int, int](20, time.Hour)
+	lru.SetTTL(0, 0<<4, 1*time.Hour)
+	lru.SetTTL(1, 1<<4, 1*time.Hour)
+	lru.SetTTL(2, 2<<4, 1*time.Hour)
+	lru.SetTTL(3, 3<<4, 1*time.Hour)
+	lru.SetTTL(4, 4<<4, 1*time.Hour)
+	lru.Reap()
+
+	keys, values := []int{}, []int{}
+	for k, v := range lru.Scan() {
+		keys = append(keys, k)
+		values = append(values, v)
+	}
+
+	sort.Ints(keys)
+	sort.Ints(values)
+	require.Equal(t, []int{0, 1, 2, 3, 4}, keys)
+	require.Equal(t, []int{0, 16, 32, 48, 64}, values)
+}
+
+func TestScanWithExpiration(t *testing.T) {
+	lru := lazylru.NewT[int, int](20, time.Hour)
+	lru.SetTTL(0, 0<<4, 1*time.Hour)
+	lru.SetTTL(1, 1<<4, 1*time.Hour)
+	lru.SetTTL(2, 2<<4, 1*time.Microsecond) // <~ almost expired
+	lru.SetTTL(3, 3<<4, 1*time.Hour)
+	lru.SetTTL(4, 4<<4, 1*time.Hour)
+	lru.Reap()
+
+	keys, values := []int{}, []int{}
+	for k, v := range lru.Scan() {
+		keys = append(keys, k)
+		values = append(values, v)
+	}
+
+	sort.Ints(keys)
+	sort.Ints(values)
+	require.Equal(t, []int{0, 1, 3, 4}, keys)
+	require.Equal(t, []int{0, 16, 48, 64}, values)
 }

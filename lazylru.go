@@ -2,6 +2,7 @@ package lazylru
 
 import (
 	"errors"
+	"iter"
 	"math/rand/v2"
 	"sync"
 	"sync/atomic"
@@ -505,6 +506,34 @@ func (lru *LazyLRU[K, V]) Len() int {
 	lru.lock.RLock()
 	defer lru.lock.RUnlock()
 	return len(lru.items)
+}
+
+// Scan returns an iterator that yields current non-expired items from the cache.
+// It iterates over a snapshot of keys taken at the beginning of iteration,
+// checking each key's existence and expiration before yielding its associated value.
+// Keys created after the scan begins will be ignored.
+func (lru *LazyLRU[K, V]) Scan() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		for _, k := range lru.keys() {
+			if v, found := lru.Get(k); found {
+				if !yield(k, v) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// keys returns a copy of the cache's keys for the iterator.
+func (lru *LazyLRU[K, V]) keys() []K {
+	lru.lock.RLock()
+	defer lru.lock.RUnlock()
+	// TODO: Replace with items iteration
+	keys := make([]K, 0, len(lru.index))
+	for key := range lru.index {
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 // Close stops the reaper process. This is safe to call multiple times.
