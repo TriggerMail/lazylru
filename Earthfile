@@ -1,6 +1,6 @@
 VERSION 0.6
 
-FROM golang:1.22
+FROM golang:1.23
 
 all-bench:
     BUILD +fmt-bench

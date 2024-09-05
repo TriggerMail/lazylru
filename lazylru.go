@@ -236,7 +236,7 @@ func (lru *LazyLRU[K, V]) reap(start int, deathList []*item[K, V]) {
 		}
 		// cut off all the expired items
 		for 0 < lru.items.Len() && lru.items[0].insertNumber == 0 {
-			_ = heap.Pop[*item[K, V]](&lru.items)
+			_ = heap.Pop(&lru.items)
 		}
 		lru.lock.Unlock()
 	}
@@ -289,7 +289,7 @@ func (lru *LazyLRU[K, V]) Get(key K) (V, bool) {
 			delete(lru.index, pqi.key)
 			// cut off all the expired items. should only be one
 			for lru.items.Len() > 0 && lru.items[0].insertNumber == 0 {
-				_ = heap.Pop[*item[K, V]](&lru.items)
+				_ = heap.Pop(&lru.items)
 			}
 			lru.stats.KeysReadExpired++
 			lru.lock.Unlock()
@@ -378,7 +378,7 @@ func (lru *LazyLRU[K, V]) MGet(keys ...K) map[K]V {
 
 	// cut off all the expired items
 	for lru.items.Len() > 0 && lru.items[0].insertNumber == 0 {
-		_ = heap.Pop[*item[K, V]](&lru.items)
+		_ = heap.Pop(&lru.items)
 	}
 
 	for _, key := range needsShuffle {
@@ -435,12 +435,12 @@ func (lru *LazyLRU[K, V]) setInternal(key K, value V, expiration time.Time) []*i
 
 		// remove excess
 		for lru.items.Len() >= lru.maxItems {
-			deadGuy := heap.Pop[*item[K, V]](&lru.items)
+			deadGuy := heap.Pop(&lru.items)
 			delete(lru.index, deadGuy.key)
 			deathList = append(deathList, deadGuy)
 			lru.stats.Evictions++
 		}
-		heap.Push[*item[K, V]](&lru.items, pqi)
+		heap.Push(&lru.items, pqi)
 		lru.index[key] = pqi
 	}
 	return deathList
@@ -492,9 +492,9 @@ func (lru *LazyLRU[K, V]) Delete(key K) {
 		lru.lock.Unlock()
 		return
 	}
-	delete(lru.index, pqi.key)                   // remove from search index
-	lru.items.update(pqi, 0)                     // move this item to the top of the heap
-	deadguy := heap.Pop[*item[K, V]](&lru.items) // pop item from the top of the heap
+	delete(lru.index, pqi.key)      // remove from search index
+	lru.items.update(pqi, 0)        // move this item to the top of the heap
+	deadguy := heap.Pop(&lru.items) // pop item from the top of the heap
 	lru.lock.Unlock()
 	if lru.numEvictCB.Load() > 0 {
 		lru.execOnEvict([]*item[K, V]{deadguy})
@@ -528,7 +528,6 @@ func (lru *LazyLRU[K, V]) Scan() iter.Seq2[K, V] {
 func (lru *LazyLRU[K, V]) keys() []K {
 	lru.lock.RLock()
 	defer lru.lock.RUnlock()
-	// TODO: Replace with items iteration
 	keys := make([]K, 0, len(lru.index))
 	for key := range lru.index {
 		keys = append(keys, key)

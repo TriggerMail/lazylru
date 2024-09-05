@@ -582,7 +582,9 @@ func TestScanWithExpiration(t *testing.T) {
 	lru.SetTTL(1, 1<<4, 1*time.Hour)
 	lru.SetTTL(2, 2<<4, 1*time.Microsecond) // <~ almost expired
 	lru.SetTTL(3, 3<<4, 1*time.Hour)
-	lru.SetTTL(4, 4<<4, 1*time.Hour)
+	lru.SetTTL(4, 4<<4, 1*time.Microsecond) // <~ almost expired
+	lru.SetTTL(5, 5<<4, 1*time.Hour)
+	lru.SetTTL(6, 6<<4, 1*time.Hour)
 	lru.Reap()
 
 	keys, values := []int{}, []int{}
@@ -593,6 +595,6 @@ func TestScanWithExpiration(t *testing.T) {
 
 	sort.Ints(keys)
 	sort.Ints(values)
-	require.Equal(t, []int{0, 1, 3, 4}, keys)
-	require.Equal(t, []int{0, 16, 48, 64}, values)
+	require.Equal(t, []int{0, 1, 3, 5, 6}, keys)
+	require.Equal(t, []int{0, 16, 48, 80, 96}, values)
 }

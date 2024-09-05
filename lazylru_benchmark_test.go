@@ -235,3 +235,51 @@ func Benchmark(b *testing.B) {
 		b.Run(bc.Name()+"/generic/value", bc.GenericValue)
 	}
 }
+
+type benchScanConfig struct {
+	capacity int
+	keyCount int
+}
+
+func (bc *benchScanConfig) ScanInterfaceValues(b *testing.B) {
+	lru := lazylru.New(bc.capacity, time.Minute)
+	defer lru.Close()
+	for i := 0; i < bc.keyCount; i++ {
+		lru.Set(keys[i], i)
+	}
+	runtime.GC()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for range lru.Scan() {
+			continue
+		}
+	}
+}
+
+func (bc *benchScanConfig) ScanGenericValues(b *testing.B) {
+	lru := lazylru.NewT[string, int](bc.capacity, time.Minute)
+	defer lru.Close()
+	for i := 0; i < bc.keyCount; i++ {
+		lru.Set(keys[i], i)
+	}
+	runtime.GC()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for range lru.Scan() {
+			continue
+		}
+	}
+}
+
+func BenchmarkScan(b *testing.B) {
+	for _, bc := range []benchScanConfig{
+		{100000, 0},
+		{100000, 1},
+		{100000, 100},
+		{100000, 1000},
+		{100000, 100000},
+	} {
+		b.Run(fmt.Sprintf("scan/interface/keys/%d", bc.keyCount), bc.ScanInterfaceValues)
+		b.Run(fmt.Sprintf("scan/generic/keys/%d", bc.keyCount), bc.ScanGenericValues)
+	}
+}
