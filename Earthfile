@@ -261,7 +261,7 @@ goveralls:
 golangci-lint:
     RUN echo Installing golangci-lint...
     # see https://golangci-lint.run/usage/install/#other-ci
-    RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /go/bin v1.57.2
+    RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /go/bin v1.60.3
     SAVE ARTIFACT /go/bin/golangci-lint /go/bin/golangci-lint
 
 junit-report:
