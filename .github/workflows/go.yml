@@ -21,20 +21,19 @@ jobs:
     - name: Go Tidy
       run: go mod tidy && git diff --exit-code
 
-    - name: Go Mod
-      run: go mod download
-
-    - name: Go Mod Verify
-      run: go mod verify
-
     - name: Build
       run: go build -v ./...
 
     - name: Test
       run: go test --timeout=10s -v ./...
 
+    - name: Go Format
+      run: gofmt -s -w . && git diff --exit-code
+
+    - name: Go Vet
+      run: go vet ./...
+
     - name: Lint code
       uses: golangci/golangci-lint-action@v6
       with:
         version: v1.60.3
-        only-new-issues: true
