@@ -1,10 +1,10 @@
 run:
-  go: "1.20"
+  go: "1.23"
   timeout: 5m
   issues-exit-code: 1
   tests: true
   skip-dirs-use-default: true
-  modules-download-mode: vendor
+  modules-download-mode: readonly
 
 linters:
   enable:
@@ -32,3 +32,4 @@ issues:
   exclude:
     - EXC0002 # Annoying issue about not having a comment
     - EXC0012 # func should have comment or be unexported
+    - EXG115  # integer overflow conversion uint64 -> int
