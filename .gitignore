@@ -2,3 +2,4 @@
 .DS_Store
 test-results/
 dist/
+vendor/
