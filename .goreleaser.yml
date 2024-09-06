@@ -1,14 +1,8 @@
-# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
-# vim: set ts=2 sw=2 tw=0 fo=cnqoj
-version: 2
-
 project_name: lazylru
-
+version: 2
 builds:
   - skip: true
-
 release:
   prerelease: auto
-
 changelog:
   sort: asc
