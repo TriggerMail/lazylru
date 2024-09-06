@@ -2,6 +2,7 @@ package lazylru
 
 import (
 	"errors"
+	"iter"
 	"math/rand/v2"
 	"sync"
 	"sync/atomic"
@@ -235,7 +236,7 @@ func (lru *LazyLRU[K, V]) reap(start int, deathList []*item[K, V]) {
 		}
 		// cut off all the expired items
 		for 0 < lru.items.Len() && lru.items[0].insertNumber == 0 {
-			_ = heap.Pop[*item[K, V]](&lru.items)
+			_ = heap.Pop(&lru.items)
 		}
 		lru.lock.Unlock()
 	}
@@ -288,7 +289,7 @@ func (lru *LazyLRU[K, V]) Get(key K) (V, bool) {
 			delete(lru.index, pqi.key)
 			// cut off all the expired items. should only be one
 			for lru.items.Len() > 0 && lru.items[0].insertNumber == 0 {
-				_ = heap.Pop[*item[K, V]](&lru.items)
+				_ = heap.Pop(&lru.items)
 			}
 			lru.stats.KeysReadExpired++
 			lru.lock.Unlock()
@@ -377,7 +378,7 @@ func (lru *LazyLRU[K, V]) MGet(keys ...K) map[K]V {
 
 	// cut off all the expired items
 	for lru.items.Len() > 0 && lru.items[0].insertNumber == 0 {
-		_ = heap.Pop[*item[K, V]](&lru.items)
+		_ = heap.Pop(&lru.items)
 	}
 
 	for _, key := range needsShuffle {
@@ -434,12 +435,12 @@ func (lru *LazyLRU[K, V]) setInternal(key K, value V, expiration time.Time) []*i
 
 		// remove excess
 		for lru.items.Len() >= lru.maxItems {
-			deadGuy := heap.Pop[*item[K, V]](&lru.items)
+			deadGuy := heap.Pop(&lru.items)
 			delete(lru.index, deadGuy.key)
 			deathList = append(deathList, deadGuy)
 			lru.stats.Evictions++
 		}
-		heap.Push[*item[K, V]](&lru.items, pqi)
+		heap.Push(&lru.items, pqi)
 		lru.index[key] = pqi
 	}
 	return deathList
@@ -491,9 +492,9 @@ func (lru *LazyLRU[K, V]) Delete(key K) {
 		lru.lock.Unlock()
 		return
 	}
-	delete(lru.index, pqi.key)                   // remove from search index
-	lru.items.update(pqi, 0)                     // move this item to the top of the heap
-	deadguy := heap.Pop[*item[K, V]](&lru.items) // pop item from the top of the heap
+	delete(lru.index, pqi.key)      // remove from search index
+	lru.items.update(pqi, 0)        // move this item to the top of the heap
+	deadguy := heap.Pop(&lru.items) // pop item from the top of the heap
 	lru.lock.Unlock()
 	if lru.numEvictCB.Load() > 0 {
 		lru.execOnEvict([]*item[K, V]{deadguy})
@@ -505,6 +506,33 @@ func (lru *LazyLRU[K, V]) Len() int {
 	lru.lock.RLock()
 	defer lru.lock.RUnlock()
 	return len(lru.items)
+}
+
+// Scan returns an iterator that yields current non-expired items from the cache.
+// It iterates over a snapshot of keys taken at the beginning of iteration,
+// checking each key's existence and expiration before yielding its associated value.
+// Keys created after the scan begins will be ignored.
+func (lru *LazyLRU[K, V]) Scan() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		for _, k := range lru.keys() {
+			if v, found := lru.Get(k); found {
+				if !yield(k, v) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// keys returns a copy of the cache's keys for the iterator.
+func (lru *LazyLRU[K, V]) keys() []K {
+	lru.lock.RLock()
+	defer lru.lock.RUnlock()
+	keys := make([]K, 0, len(lru.index))
+	for key := range lru.index {
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 // Close stops the reaper process. This is safe to call multiple times.
