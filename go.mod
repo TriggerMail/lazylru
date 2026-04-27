@@ -3,7 +3,7 @@ module github.com/TriggerMail/lazylru
 go 1.23
 
 require (
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.11.1
 	github.com/zeebo/xxh3 v1.0.2
 	golang.org/x/sync v0.8.0
 )
